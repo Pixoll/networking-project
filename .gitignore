@@ -1,0 +1,13 @@
+*.out
+*.exe
+test*
+*.csv
+*.txt
+compile_commands.json
+.idea/*
+.vscode/*
+vgcore*
+build/*.o
+build/
+.cache/
+venv/
