@@ -11,15 +11,13 @@
 #include <open62541/client_config_default.h>
 #include <open62541/client_highlevel.h>
 
-#pragma pack(push, 1)
-struct Sensor {
+struct __attribute__((packed)) Sensor {
     int id;
     float temperature;
     float pression;
     float humidity;
     char timestamp[21];
 };
-#pragma pack(pop)
 
 static volatile bool running = true;
 
@@ -73,10 +71,10 @@ int main(const int argc, const char *argv[]) {
     }
 
     std::mt19937 gen(std::random_device{}());
-    std::normal_distribution<float> temp_dist(13.5, 1.09);
-    std::normal_distribution<float> pres_dist(1017, 2.0);
-    std::normal_distribution<float> hum_dist(75, 5);
-    std::normal_distribution<float> interval_dist(4.0, 1.0);
+    std::normal_distribution<float> temp_dist(13.5f, 1.09f);
+    std::normal_distribution<float> pres_dist(1017.0f, 2.0f);
+    std::normal_distribution<float> hum_dist(75.0f, 5.0f);
+    std::normal_distribution<float> interval_dist(4.0f, 1.0f);
 
     const int sensorId = std::stoi(argv[1]);
 
