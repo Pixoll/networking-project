@@ -1,31 +1,72 @@
+// cliente_serializado.cpp - Envia struct Sensor como UA_ByteString serializado
+
 #include <iostream>
 #include <csignal>
 #include <thread>
 #include <random>
+#include <chrono>
+#include <cstring>
+
 #include <open62541/client.h>
 #include <open62541/client_config_default.h>
 #include <open62541/client_highlevel.h>
 
+// Estructura base del sensor
+#pragma pack(push, 1)  // Desactiva padding
+struct Sensor{
+    int id;
+    float temperatura;
+    float presion;
+    float humedad;
+    char timestamp[64]; // tamaño fijo
+} ;
+#pragma pack(pop) 
 static volatile bool running = true;
-
-static void stopHandler(int sign) {
+static void stopHandler(int) {
     running = false;
 }
 
+// Serializador manual
+UA_StatusCode serializeSensor(const Sensor *input, UA_ByteString *output) {
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+    UA_UInt32 offset = 0;
+    UA_UInt32 bufferSize = sizeof(Sensor);
+
+    output->data = (UA_Byte *)UA_malloc(bufferSize);
+    if (!output->data)
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+
+    memcpy(output->data + offset, &input->id, sizeof(int));
+    offset += sizeof(int);
+
+    memcpy(output->data + offset, &input->temperatura, sizeof(float));
+    offset += sizeof(float);
+
+    memcpy(output->data + offset, &input->presion, sizeof(float));
+    offset += sizeof(float);
+
+    memcpy(output->data + offset, &input->humedad, sizeof(float));
+    offset += sizeof(float);
+
+    memcpy(output->data + offset, input->timestamp, sizeof(input->timestamp));
+    offset += sizeof(input->timestamp);
+
+    output->length = offset;
+    return retval;
+}
+
 int main(int argc, char* argv[]) {
-    if (argc != 2){
-        std::cerr << "Cantidad erronea de argumentos\n";
-        return -1;
+    if (argc != 2) {
+        std::cerr << "Uso: ./cliente <idSensor>" << std::endl;
+        return 1;
     }
-    // Manejo de señales para salir limpiamente
+
     std::signal(SIGINT, stopHandler);
     std::signal(SIGTERM, stopHandler);
 
-    // Crear cliente y configurar
     UA_Client *client = UA_Client_new();
     UA_ClientConfig_setDefault(UA_Client_getConfig(client));
 
-    // Conectar al servidor
     UA_StatusCode status = UA_Client_connect(client, "opc.tcp://localhost:4840");
     if (status != UA_STATUSCODE_GOOD) {
         std::cerr << "Error al conectar con el servidor OPC UA." << std::endl;
@@ -33,77 +74,46 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::normal_distribution<> intervalo_entre_envios(4, 1); // en porciento
+    std::normal_distribution<> temp_dist(13.5, 1.09);
+    std::normal_distribution<> pres_dist(1017, 2.0);
+    std::normal_distribution<> hum_dist(75, 5);
+    std::normal_distribution<> intv_dist(4.0, 1.0);
 
+    int sensorId = std::stoi(argv[1]);
 
-
-    std::normal_distribution<> temperaturas_random(13.5f, 1.09f); //en grados celcius
-    std::normal_distribution<> presion_random(1017, 2.0f); //En var
-    std::normal_distribution<> humedad_random(75, 5); // en porciento
-
-
-    float intervalo = intervalo_entre_envios(gen);
-
-    std::string id = argv[1];
-    float temperatura = temperaturas_random(gen);
-    float presion = presion_random(gen);
-    float humedad = humedad_random(gen);
-    std::string timestamp = "Lorem ipsum";
-
-    // Preparar mensaje JSON
-    std::string mensaje = "{\n"
-        "    \"id\": " + id + ",\n"
-        "    \"temperatura\": " + std::to_string(temperatura) + ",\n"
-        "    \"presion\": " + std::to_string(presion) + ",\n"
-        "    \"humedad\": " + std::to_string(humedad) + ",\n"
-        "    \"timestamp\": \"" + timestamp + "\"\n"
-    "}";
-
-    UA_String ua_msg = UA_STRING_ALLOC(mensaje.c_str());
-    UA_Variant valor;
-    UA_Variant_init(&valor);
-    UA_Variant_setScalar(&valor, &ua_msg, &UA_TYPES[UA_TYPES_STRING]);
-
-    // Nodo destino
-    UA_NodeId publicacionId = UA_NODEID_STRING(1, "Publicacion");
-
-    // Loop principal con UA_Client_run_iterate
-    bool enviado = false;
-    // Dentro del while (running)
     while (running) {
-        UA_Client_run_iterate(client, true);
+        Sensor s;
+        s.id = sensorId;
+        s.temperatura = temp_dist(gen);
+        s.presion = pres_dist(gen);
+        s.humedad = hum_dist(gen);
+        strncpy(s.timestamp, "2025-07-01T12:00:00Z", sizeof(s.timestamp));
 
-        // Aquí quitamos el if (!enviado)
-        status = UA_Client_writeValueAttribute(client, publicacionId, &valor);
-        if (status == UA_STATUSCODE_GOOD) {
-            std::cout << "Mensaje enviado exitosamente al nodo 'Publicacion'.\n";
-        } else {
-            std::cerr << "Error al escribir en el nodo: " << UA_StatusCode_name(status) << std::endl;
+        UA_ByteString bytes;
+        if (serializeSensor(&s, &bytes) != UA_STATUSCODE_GOOD) {
+            std::cerr << "Fallo en la serialización" << std::endl;
+            continue;
         }
 
-        std::this_thread::sleep_for(std::chrono::duration<float>(intervalo)); // Para no escribir constantemente
-    
-        intervalo = intervalo_entre_envios(gen);
-        
-        std::string id = argv[1];
-        float temperatura = temperaturas_random(gen);
-        float presion = presion_random(gen);
-        float humedad = humedad_random(gen);
-        std::string timestamp = "Lorem ipsum";
+        UA_Variant valor;
+        UA_Variant_init(&valor);
+        UA_Variant_setScalar(&valor, &bytes, &UA_TYPES[UA_TYPES_BYTESTRING]);
 
-        // Preparar mensaje JSON
-        std::string mensaje = "{\n"
-            "    \"id\": " + id + ",\n"
-            "    \"temperatura\": " + std::to_string(temperatura) + ",\n"
-            "    \"presion\": " + std::to_string(presion) + ",\n"
-            "    \"humedad\": " + std::to_string(humedad) + ",\n"
-            "    \"timestamp\": \"" + timestamp + "\"\n"
-        "}";
+        std::string nodeName = "Sensor" + std::to_string(sensorId);
+        UA_NodeId destino = UA_NODEID_STRING_ALLOC(1, nodeName.c_str());
 
+        status = UA_Client_writeValueAttribute(client, destino, &valor);
+        if (status == UA_STATUSCODE_GOOD)
+            std::cout << "Mensaje enviado al nodo '" << nodeName << "'\n";
+        else
+            std::cerr << "Fallo al escribir nodo: " << UA_StatusCode_name(status) << std::endl;
 
+        UA_NodeId_clear(&destino);
+        UA_ByteString_clear(&bytes);
+        std::cout << "Tamaño de Sensor: " << sizeof(Sensor) << std::endl; // Debe ser 80 bytes
+        std::this_thread::sleep_for(std::chrono::milliseconds((int)(intv_dist(gen) * 1000)));
     }
 
     UA_Client_disconnect(client);
