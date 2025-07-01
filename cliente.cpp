@@ -1,11 +1,11 @@
 // cliente_serializado.cpp - Envia struct Sensor como UA_ByteString serializado
 
-#include <iostream>
-#include <csignal>
-#include <thread>
-#include <random>
 #include <chrono>
+#include <csignal>
 #include <cstring>
+#include <iostream>
+#include <random>
+#include <thread>
 
 #include <open62541/client.h>
 #include <open62541/client_config_default.h>
@@ -13,26 +13,27 @@
 
 // Estructura base del sensor
 #pragma pack(push, 1)  // Desactiva padding
-struct Sensor{
+struct Sensor {
     int id;
     float temperatura;
     float presion;
     float humedad;
     char timestamp[64]; // tamaño fijo
-} ;
-#pragma pack(pop) 
+};
+#pragma pack(pop)
 static volatile bool running = true;
+
 static void stopHandler(int) {
     running = false;
 }
 
 // Serializador manual
 UA_StatusCode serializeSensor(const Sensor *input, UA_ByteString *output) {
-    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+    constexpr UA_StatusCode retval = UA_STATUSCODE_GOOD;
+    constexpr UA_UInt32 bufferSize = sizeof(Sensor);
     UA_UInt32 offset = 0;
-    UA_UInt32 bufferSize = sizeof(Sensor);
 
-    output->data = (UA_Byte *)UA_malloc(bufferSize);
+    output->data = static_cast<UA_Byte *>(UA_malloc(bufferSize));
     if (!output->data)
         return UA_STATUSCODE_BADOUTOFMEMORY;
 
@@ -55,7 +56,7 @@ UA_StatusCode serializeSensor(const Sensor *input, UA_ByteString *output) {
     return retval;
 }
 
-int main(int argc, char* argv[]) {
+int main(const int argc, const char *argv[]) {
     if (argc != 2) {
         std::cerr << "Uso: ./cliente <idSensor>" << std::endl;
         return 1;
@@ -76,19 +77,20 @@ int main(int argc, char* argv[]) {
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::normal_distribution<> temp_dist(13.5, 1.09);
-    std::normal_distribution<> pres_dist(1017, 2.0);
-    std::normal_distribution<> hum_dist(75, 5);
-    std::normal_distribution<> intv_dist(4.0, 1.0);
+    std::normal_distribution<float> temp_dist(13.5, 1.09);
+    std::normal_distribution<float> pres_dist(1017, 2.0);
+    std::normal_distribution<float> hum_dist(75, 5);
+    std::normal_distribution<float> intv_dist(4.0, 1.0);
 
-    int sensorId = std::stoi(argv[1]);
+    const int sensorId = std::stoi(argv[1]);
 
     while (running) {
-        Sensor s;
-        s.id = sensorId;
-        s.temperatura = temp_dist(gen);
-        s.presion = pres_dist(gen);
-        s.humedad = hum_dist(gen);
+        Sensor s{
+            .id = sensorId,
+            .temperatura = temp_dist(gen),
+            .presion = pres_dist(gen),
+            .humedad = hum_dist(gen),
+        };
         strncpy(s.timestamp, "2025-07-01T12:00:00Z", sizeof(s.timestamp));
 
         UA_ByteString bytes;
@@ -102,18 +104,25 @@ int main(int argc, char* argv[]) {
         UA_Variant_setScalar(&valor, &bytes, &UA_TYPES[UA_TYPES_BYTESTRING]);
 
         std::string nodeName = "Sensor" + std::to_string(sensorId);
+        std::cout << nodeName << std::endl;
         UA_NodeId destino = UA_NODEID_STRING_ALLOC(1, nodeName.c_str());
 
         status = UA_Client_writeValueAttribute(client, destino, &valor);
-        if (status == UA_STATUSCODE_GOOD)
-            std::cout << "Mensaje enviado al nodo '" << nodeName << "'\n";
-        else
+        if (status == UA_STATUSCODE_GOOD) {
+            std::cout << "Mensaje enviado al nodo '" << nodeName << "'\n"
+                << "    id = " << s.id << '\n'
+                << "    temp = " << s.temperatura << '\n'
+                << "    pres = " << s.presion << '\n'
+                << "    hum = " << s.humedad << '\n'
+                << "    time = " << s.timestamp << std::endl;
+        } else {
             std::cerr << "Fallo al escribir nodo: " << UA_StatusCode_name(status) << std::endl;
+        }
 
         UA_NodeId_clear(&destino);
         UA_ByteString_clear(&bytes);
         std::cout << "Tamaño de Sensor: " << sizeof(Sensor) << std::endl; // Debe ser 80 bytes
-        std::this_thread::sleep_for(std::chrono::milliseconds((int)(intv_dist(gen) * 1000)));
+        std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(intv_dist(gen) * 1000)));
     }
 
     UA_Client_disconnect(client);

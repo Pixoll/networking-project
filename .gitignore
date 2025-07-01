@@ -4,10 +4,10 @@ test*
 *.csv
 *.txt
 compile_commands.json
-.idea/*
-.vscode/*
+.idea/
+.vscode/
 vgcore*
-build/*.o
 build/
 .cache/
 venv/
+.venv/
