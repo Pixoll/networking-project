@@ -16,13 +16,19 @@ struct __attribute__((packed)) Sensor {
     float temperature;
     float pression;
     float humidity;
-    char timestamp[21];
+    UA_Int64 timestamp;
 };
 
 static volatile bool running = true;
 
 static void stopHandler(int) {
     running = false;
+}
+
+UA_Int64 now() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::high_resolution_clock::now().time_since_epoch()
+    ).count();
 }
 
 UA_StatusCode serializeSensor(const Sensor *input, UA_ByteString *output) {
@@ -44,7 +50,7 @@ UA_StatusCode serializeSensor(const Sensor *input, UA_ByteString *output) {
     memcpy(output->data + offset, &input->humidity, sizeof(float));
     offset += sizeof(float);
 
-    memcpy(output->data + offset, input->timestamp, sizeof(input->timestamp));
+    memcpy(output->data + offset, &input->timestamp, sizeof(UA_UInt64));
     offset += sizeof(input->timestamp);
 
     output->length = offset;
@@ -80,12 +86,12 @@ int main(const int argc, const char *argv[]) {
 
     while (running) {
         Sensor s{
-            .id = sensorId,
-            .temperature = temp_dist(gen),
-            .pression = pres_dist(gen),
-            .humidity = hum_dist(gen),
+                .id = sensorId,
+                .temperature = temp_dist(gen),
+                .pression = pres_dist(gen),
+                .humidity = hum_dist(gen),
+                .timestamp = now(),
         };
-        strncpy(s.timestamp, "2025-07-01T12:00:00Z", sizeof(s.timestamp));
 
         UA_ByteString bytes;
         if (serializeSensor(&s, &bytes) != UA_STATUSCODE_GOOD) {
@@ -102,11 +108,11 @@ int main(const int argc, const char *argv[]) {
         status = UA_Client_writeValueAttribute(client, dest, &value);
         if (status == UA_STATUSCODE_GOOD) {
             std::cout << "Data sent to node\n"
-                << "    id = " << s.id << '\n'
-                << "    temp = " << s.temperature << '\n'
-                << "    pres = " << s.pression << '\n'
-                << "    hum = " << s.humidity << '\n'
-                << "    time = " << s.timestamp << std::endl;
+                      << "    id = " << s.id << '\n'
+                      << "    temp = " << s.temperature << '\n'
+                      << "    pres = " << s.pression << '\n'
+                      << "    hum = " << s.humidity << '\n'
+                      << "    time = " << s.timestamp << std::endl;
         } else {
             std::cerr << "Could not write to node: " << UA_StatusCode_name(status) << std::endl;
         }

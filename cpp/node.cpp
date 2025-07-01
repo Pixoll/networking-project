@@ -22,11 +22,14 @@ int main() {
 
     const auto constLocale = "es-US";
     const auto constNodeName = "sensor";
-
-    char locale[strlen(constLocale) + 1];
-    strncpy(locale, constLocale, sizeof(locale));
-    char nodeName[strlen(constNodeName) + 1];
-    strncpy(nodeName, constNodeName, sizeof(nodeName));
+    const auto localeSize = strlen(constLocale) + 1;
+    const auto nodeNameSize = strlen(constNodeName) + 1;
+    char *locale = static_cast<char *>(malloc(localeSize));
+    char *nodeName = static_cast<char *>(malloc(nodeNameSize));
+    strncpy(locale, constLocale, localeSize);
+    strncpy(nodeName, constNodeName, nodeNameSize);
+    locale[localeSize - 1] = 0;
+    nodeName[nodeNameSize - 1] = 0;
 
     UA_VariableAttributes attr = UA_VariableAttributes_default;
     UA_ByteString emptyData;
@@ -41,15 +44,15 @@ int main() {
     const UA_QualifiedName name = UA_QUALIFIEDNAME(1, nodeName);
 
     const UA_StatusCode rc = UA_Server_addVariableNode(
-        server,
-        nodeId,
-        UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
-        UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-        name,
-        UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE),
-        attr,
-        nullptr,
-        nullptr
+            server,
+            nodeId,
+            UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
+            UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+            name,
+            UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE),
+            attr,
+            nullptr,
+            nullptr
     );
 
     if (rc != UA_STATUSCODE_GOOD) {
@@ -59,8 +62,8 @@ int main() {
     }
 
     std::cout << "OPC UA server running at opc.tcp://localhost:4840\n"
-        << "Node available: ns=1;s=" << constNodeName << " (ByteString)\n"
-        << "Press Ctrl+C to exit\n";
+              << "Node available: ns=1;s=" << constNodeName << " (ByteString)\n"
+              << "Press Ctrl+C to exit\n";
 
     UA_Server_run(server, &running);
 
