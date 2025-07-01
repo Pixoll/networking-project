@@ -26,8 +26,14 @@ if (NOT OPEN62541_LIB)
     message(FATAL_ERROR "libopen62541.a not found in open62541/build/bin")
 endif ()
 
+if (WIN32)
+    set(PLATFORM_LIBS ws2_32 iphlpapi)
+else ()
+    set(PLATFORM_LIBS)
+endif ()
+
 add_executable(node cpp/node.cpp)
-target_link_libraries(node ${OPEN62541_LIB})
+target_link_libraries(node ${OPEN62541_LIB} ${PLATFORM_LIBS})
 
 add_executable(sensor cpp/sensor.cpp)
-target_link_libraries(sensor ${OPEN62541_LIB})
+target_link_libraries(sensor ${OPEN62541_LIB} ${PLATFORM_LIBS})
