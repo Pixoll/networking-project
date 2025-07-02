@@ -24,6 +24,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Main {
     private static final String URL = "opc.tcp://localhost:4840";
@@ -37,7 +38,13 @@ public class Main {
         public final float humidity;
         public final long timestamp;
 
-        public SensorData(int sensorId, float temperature, float pressure, float humidity, long timestamp) {
+        public SensorData(
+            final int sensorId,
+            final float temperature,
+            final float pressure,
+            final float humidity,
+            final long timestamp
+        ) {
             this.sensorId = sensorId;
             this.temperature = temperature;
             this.pressure = pressure;
@@ -50,15 +57,15 @@ public class Main {
         public final byte[] sensorData;
         public final byte[] signature;
 
-        public SignedDataResult(byte[] sensorData, byte[] signature) {
+        public SignedDataResult(final byte[] sensorData, final byte[] signature) {
             this.sensorData = sensorData;
             this.signature = signature;
         }
     }
 
-    public static PublicKey loadPublicKey(String keyPath) {
+    public static PublicKey loadPublicKey(final String keyPath) {
         try {
-            byte[] keyBytes = Files.readAllBytes(Paths.get(keyPath));
+            final byte[] keyBytes = Files.readAllBytes(Paths.get(keyPath));
             String keyContent = new String(keyBytes);
 
             keyContent = keyContent
@@ -66,97 +73,102 @@ public class Main {
                 .replace("-----END PUBLIC KEY-----", "")
                 .replaceAll("\\s", "");
 
-            byte[] decodedKey = Base64.getDecoder().decode(keyContent);
-            X509EncodedKeySpec keySpec = new X509EncodedKeySpec(decodedKey);
-            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            final byte[] decodedKey = Base64.getDecoder().decode(keyContent);
+            final X509EncodedKeySpec keySpec = new X509EncodedKeySpec(decodedKey);
+            final KeyFactory keyFactory = KeyFactory.getInstance("RSA");
 
             return keyFactory.generatePublic(keySpec);
 
-        } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
+        } catch (final IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
             System.err.println("Error loading public key: " + e.getMessage());
             return null;
         }
     }
 
-    public static boolean verifySignature(byte[] data, byte[] signature, PublicKey publicKey) {
+    public static boolean verifySignature(final byte[] data, final byte[] signature, final PublicKey publicKey) {
         try {
-            Signature sig = Signature.getInstance("SHA256withRSA");
+            final Signature sig = Signature.getInstance("SHA256withRSA");
             sig.initVerify(publicKey);
             sig.update(data);
             return sig.verify(signature);
 
-        } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
+        } catch (final NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
             System.err.println("Error during signature verification: " + e.getMessage());
             return false;
         }
     }
 
-    public static SignedDataResult deserializeSignedData(byte[] rawData) throws IllegalArgumentException {
+    public static SignedDataResult deserializeSignedData(final byte[] rawData) throws IllegalArgumentException {
         if (rawData.length < 24) {
             throw new IllegalArgumentException("Invalid data (len 24)");
         }
 
-        byte[] sensorData = new byte[24];
+        final byte[] sensorData = new byte[24];
         System.arraycopy(rawData, 0, sensorData, 0, 24);
 
         if (rawData.length < 32) {
             throw new IllegalArgumentException("Invalid data (len 32)");
         }
 
-        ByteBuffer buffer = ByteBuffer.wrap(rawData, 24, 8);
+        final ByteBuffer buffer = ByteBuffer.wrap(rawData, 24, 8);
         buffer.order(ByteOrder.LITTLE_ENDIAN);
-        long signatureLength = buffer.getLong();
+        final long signatureLength = buffer.getLong();
 
         if (rawData.length < 32 + signatureLength) {
             throw new IllegalArgumentException("Invalid data (len " + (32 + signatureLength) + ")");
         }
 
-        byte[] signature = new byte[(int) signatureLength];
+        final byte[] signature = new byte[(int) signatureLength];
         System.arraycopy(rawData, 32, signature, 0, (int) signatureLength);
 
         return new SignedDataResult(sensorData, signature);
     }
 
-    public static SensorData parseSensorData(byte[] data) {
-        ByteBuffer buffer = ByteBuffer.wrap(data);
+    public static SensorData parseSensorData(final byte[] data) {
+        final ByteBuffer buffer = ByteBuffer.wrap(data);
         buffer.order(ByteOrder.LITTLE_ENDIAN);
 
-        int sensorId = buffer.getInt();
-        float temperature = buffer.getFloat();
-        float pressure = buffer.getFloat();
-        float humidity = buffer.getFloat();
-        long timestamp = buffer.getLong();
+        final int sensorId = buffer.getInt();
+        final float temperature = buffer.getFloat();
+        final float pressure = buffer.getFloat();
+        final float humidity = buffer.getFloat();
+        final long timestamp = buffer.getLong();
 
         return new SensorData(sensorId, temperature, pressure, humidity, timestamp);
     }
 
-    public static String formatTimestamp(long timestamp) {
-        Instant instant = Instant.ofEpochMilli(timestamp);
-        DateTimeFormatter formatter = DateTimeFormatter
+    public static String formatTimestamp(final long timestamp) {
+        final Instant instant = Instant.ofEpochMilli(timestamp);
+        final DateTimeFormatter formatter = DateTimeFormatter
             .ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
             .withZone(ZoneId.systemDefault());
         return formatter.format(instant);
     }
 
-    public static void main(String[] args) {
-        PublicKey publicKey = loadPublicKey(PUBLIC_KEY_PATH);
+    public static void main(final String[] args) {
+        final PublicKey publicKey = loadPublicKey(PUBLIC_KEY_PATH);
         if (publicKey == null) {
             System.err.println("Failed to load public key");
             return;
         }
 
         try {
-            OpcUaClient client = OpcUaClient.create(URL);
+            final OpcUaClient client = OpcUaClient.create(URL);
+            final AtomicBoolean running = new AtomicBoolean(true);
 
             try {
                 client.connect().get();
                 System.out.println("Connected to OPC UA server.");
 
-                NodeId nodeId = NodeId.parse(NODE_ID);
+                final NodeId nodeId = NodeId.parse(NODE_ID);
 
-                while (true) {
+                Runtime.getRuntime().addShutdownHook(new Thread(() ->
+                    running.compareAndSet(true, false)
+                ));
+
+                while (running.get()) {
                     try {
-                        Variant variant = client.readValue(0.0, TimestampsToReturn.Neither, nodeId).get().getValue();
+                        final Variant variant = client.readValue(0.0, TimestampsToReturn.Neither, nodeId).get().getValue();
 
                         if (variant == null || variant.getValue() == null) {
                             System.out.println("No data received");
@@ -164,20 +176,20 @@ public class Main {
                             continue;
                         }
 
-                        byte[] rawData = ((ByteString)variant.getValue()).bytes();
-                        if (rawData.length == 0) {
+                        final byte[] rawData = ((ByteString)variant.getValue()).bytes();
+                        if (rawData == null || rawData.length == 0) {
                             System.out.println("No data received");
                             Thread.sleep(500);
                             continue;
                         }
 
-                        SignedDataResult result = deserializeSignedData(rawData);
-                        boolean isValid = verifySignature(result.sensorData, result.signature, publicKey);
+                        final SignedDataResult result = deserializeSignedData(rawData);
+                        final boolean isValid = verifySignature(result.sensorData, result.signature, publicKey);
 
-                        SensorData sensorData = parseSensorData(result.sensorData);
-                        String timestampString = formatTimestamp(sensorData.timestamp);
+                        final SensorData sensorData = parseSensorData(result.sensorData);
+                        final String timestampString = formatTimestamp(sensorData.timestamp);
 
-                        String statusText = isValid ? "VALID" : "INVALID";
+                        final String statusText = isValid ? "VALID" : "INVALID";
 
                         System.out.println("\n[sub] signature: " + statusText);
                         System.out.println("    sensor_id        = " + sensorData.sensorId);
@@ -186,19 +198,21 @@ public class Main {
                         System.out.println("    humidity         = " + sensorData.humidity);
                         System.out.println("    timestamp        = " + timestampString);
                         System.out.println("    signature_length = " + result.signature.length);
-                    } catch (Exception e) {
+                    } catch (final InterruptedException e) {
+                        break;
+                    } catch (final Exception e) {
                         System.err.println("Error processing data: " + e.getMessage());
                     }
 
                     Thread.sleep(500);
                 }
-            } catch (InterruptedException | ExecutionException e) {
+            } catch (final InterruptedException | ExecutionException e) {
                 System.err.println("Error when connecting/reading: " + e.getMessage());
             } finally {
                 client.disconnect();
                 System.out.println("Closed connection.");
             }
-        } catch (Exception e) {
+        } catch (final Exception e) {
             System.err.println("Error creating client: " + e.getMessage());
         }
     }
