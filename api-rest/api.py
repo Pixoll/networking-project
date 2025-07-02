@@ -231,16 +231,9 @@ sensor_data = [
         "humidity": 80.1,
         "timestamp": 1719894045  # 02 jul 03:34:05
     },
-    {
-        "id": 33,
-        "temperature": 20.2,
-        "pression": 1017.1,
-        "humidity": 82.3,
-        "timestamp": 1719896430
-    }
 ]
 
-next_id = 34
+next_id = 33
 
 
 def get_current_timestamp():
@@ -390,7 +383,6 @@ def method_not_allowed(error):
     return jsonify({
         "error": "Método HTTP no permitido"
     }), 405
-
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
