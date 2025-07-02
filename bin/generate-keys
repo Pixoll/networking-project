@@ -1,0 +1,15 @@
+#!/bin/bash
+
+cd "$(dirname "$0")/.."
+mkdir .keys
+
+echo "Generating RSA-2048 key pair..."
+
+openssl genpkey -algorithm RSA -out .keys/sensor_private.pem -pkcs8 -aes256
+openssl rsa -pubout -in .keys/sensor_private.pem -out .keys/sensor_public.pem
+
+echo "Keys generated:"
+echo "  Private key: .keys/sensor_private.pem (for the sensor)"
+echo "  Public key: .keys/sensor_public.pem (for the node or python)"
+
+echo "Key permissions set."

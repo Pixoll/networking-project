@@ -8,6 +8,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
 
+find_package(OpenSSL REQUIRED)
+
 include_directories(
     open62541/include
     open62541/build
@@ -36,4 +38,4 @@ add_executable(node cpp/node.cpp)
 target_link_libraries(node ${OPEN62541_LIB} ${PLATFORM_LIBS})
 
 add_executable(sensor cpp/sensor.cpp)
-target_link_libraries(sensor ${OPEN62541_LIB} ${PLATFORM_LIBS})
+target_link_libraries(sensor ${OPEN62541_LIB} OpenSSL::SSL OpenSSL::Crypto ${PLATFORM_LIBS})
