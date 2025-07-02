@@ -1,30 +1,35 @@
 package com.example.java;
 
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
+import org.eclipse.milo.opcua.sdk.client.api.subscriptions.UaMonitoredItem;
+import org.eclipse.milo.opcua.sdk.client.api.subscriptions.UaSubscription;
+import org.eclipse.milo.opcua.stack.core.AttributeId;
 import org.eclipse.milo.opcua.stack.core.types.builtin.ByteString;
 import org.eclipse.milo.opcua.stack.core.types.builtin.NodeId;
+import org.eclipse.milo.opcua.stack.core.types.builtin.QualifiedName;
 import org.eclipse.milo.opcua.stack.core.types.builtin.Variant;
+import org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.UInteger;
+import org.eclipse.milo.opcua.stack.core.types.enumerated.MonitoringMode;
 import org.eclipse.milo.opcua.stack.core.types.enumerated.TimestampsToReturn;
+import org.eclipse.milo.opcua.stack.core.types.structured.MonitoredItemCreateRequest;
+import org.eclipse.milo.opcua.stack.core.types.structured.MonitoringParameters;
+import org.eclipse.milo.opcua.stack.core.types.structured.ReadValueId;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.security.InvalidKeyException;
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.security.Signature;
-import java.security.SignatureException;
+import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Main {
     private static final String URL = "opc.tcp://localhost:4840";
@@ -154,7 +159,7 @@ public class Main {
 
         try {
             final OpcUaClient client = OpcUaClient.create(URL);
-            final AtomicBoolean running = new AtomicBoolean(true);
+            final CountDownLatch shutdownLatch = new CountDownLatch(1);
 
             try {
                 client.connect().get();
@@ -162,25 +167,42 @@ public class Main {
 
                 final NodeId nodeId = NodeId.parse(NODE_ID);
 
-                Runtime.getRuntime().addShutdownHook(new Thread(() ->
-                    running.compareAndSet(true, false)
-                ));
+                final UaSubscription subscription = client
+                    .getSubscriptionManager()
+                    .createSubscription(500.0)
+                    .get();
 
-                while (running.get()) {
+                final MonitoringParameters parameters = new MonitoringParameters(
+                    UInteger.valueOf(1),
+                    500.0,
+                    null,
+                    UInteger.valueOf(10),
+                    true
+                );
+
+                final MonitoredItemCreateRequest request = new MonitoredItemCreateRequest(
+                    new ReadValueId(nodeId, AttributeId.Value.uid(), null, QualifiedName.NULL_VALUE),
+                    MonitoringMode.Reporting,
+                    parameters
+                );
+
+                final UaMonitoredItem monitoredItem = subscription.createMonitoredItems(
+                    TimestampsToReturn.Both,
+                    List.of(request)
+                ).get().get(0);
+
+                monitoredItem.setValueConsumer((item, value) -> {
                     try {
-                        final Variant variant = client.readValue(0.0, TimestampsToReturn.Neither, nodeId).get().getValue();
-
+                        final Variant variant = value.getValue();
                         if (variant == null || variant.getValue() == null) {
                             System.out.println("No data received");
-                            Thread.sleep(500);
-                            continue;
+                            return;
                         }
 
-                        final byte[] rawData = ((ByteString)variant.getValue()).bytes();
+                        final byte[] rawData = ((ByteString) variant.getValue()).bytes();
                         if (rawData == null || rawData.length == 0) {
                             System.out.println("No data received");
-                            Thread.sleep(500);
-                            continue;
+                            return;
                         }
 
                         final SignedDataResult result = deserializeSignedData(rawData);
@@ -198,14 +220,14 @@ public class Main {
                         System.out.println("    humidity         = " + sensorData.humidity);
                         System.out.println("    timestamp        = " + timestampString);
                         System.out.println("    signature_length = " + result.signature.length);
-                    } catch (final InterruptedException e) {
-                        break;
                     } catch (final Exception e) {
                         System.err.println("Error processing data: " + e.getMessage());
                     }
+                });
 
-                    Thread.sleep(500);
-                }
+                Runtime.getRuntime().addShutdownHook(new Thread(shutdownLatch::countDown));
+
+                shutdownLatch.await();
             } catch (final InterruptedException | ExecutionException e) {
                 System.err.println("Error when connecting/reading: " + e.getMessage());
             } finally {
