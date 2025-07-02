@@ -10,10 +10,16 @@
 <body>
 <div class="container">
     <header class="header">
-        <h1>IoT Industrial Dashboard</h1>
-        <div class="status-indicator">
-            <span id="connectionStatus" class="status-dot offline"></span>
-            <span>API Status</span>
+        <h1>🏭 IoT Industrial Dashboard</h1>
+        <div class="header-controls">
+            <div class="status-indicator">
+                <span id="connectionStatus" class="status-dot offline"></span>
+                <span>API Status</span>
+            </div>
+            <div class="alert-indicator">
+                <span>🚨 Alertas Activas</span>
+                <span id="alertCounter" class="alert-counter">0</span>
+            </div>
         </div>
     </header>
 
@@ -25,29 +31,32 @@
                     <h3>Temperatura</h3>
                     <span id="currentTemp" class="metric-value">--°C</span>
                     <small id="tempTime" class="metric-time">--</small>
+                    <small class="metric-range">Rango: 10°C - 40°C</small>
                 </div>
             </div>
 
             <div class="metric-card pressure">
-                <div class="metric-icon"></div>
+                <div class="metric-icon">🔧</div>
                 <div class="metric-content">
                     <h3>Presión</h3>
                     <span id="currentPressure" class="metric-value">-- hPa</span>
                     <small id="pressureTime" class="metric-time">--</small>
+                    <small class="metric-range">Rango: 990 - 1040 hPa</small>
                 </div>
             </div>
 
             <div class="metric-card humidity">
-                <div class="metric-icon"></div>
+                <div class="metric-icon">💧</div>
                 <div class="metric-content">
                     <h3>Humedad</h3>
                     <span id="currentHumidity" class="metric-value">--%</span>
                     <small id="humidityTime" class="metric-time">--</small>
+                    <small class="metric-range">Rango: 20% - 90%</small>
                 </div>
             </div>
 
             <div class="metric-card total">
-                <div class="metric-icon"></div>
+                <div class="metric-icon">📊</div>
                 <div class="metric-content">
                     <h3>Total Lecturas</h3>
                     <span id="totalReadings" class="metric-value">--</span>
@@ -57,8 +66,9 @@
         </div>
 
         <div class="controls">
-            <button id="refreshBtn" class="btn primary">Actualizar</button>
+            <button id="refreshBtn" class="btn primary">🔄 Actualizar</button>
             <button id="autoRefreshBtn" class="btn secondary">⏱️ Auto: OFF</button>
+            <button id="clearAlertsBtn" class="btn warning">🗑️ Limpiar Alertas</button>
             <select id="timeRange" class="select">
                 <option value="10">Últimos 10 datos</option>
                 <option value="20" selected>Últimos 20 datos</option>
@@ -83,6 +93,13 @@
             </div>
         </div>
 
+        <div class="alert-panel">
+            <h3>🚨 Registro de Alertas</h3>
+            <div id="alertLog" class="alert-log">
+                <p class="no-alerts">No hay alertas registradas</p>
+            </div>
+        </div>
+
         <div class="data-table-container">
             <h3>📋 Datos Recientes</h3>
             <div class="table-wrapper">
@@ -94,11 +111,12 @@
                         <th>Presión (hPa)</th>
                         <th>Humedad (%)</th>
                         <th>Timestamp</th>
+                        <th>Estado</th>
                     </tr>
                     </thead>
                     <tbody id="dataTableBody">
                     <tr>
-                        <td colspan="5" class="no-data">Cargando datos...</td>
+                        <td colspan="6" class="no-data">Cargando datos...</td>
                     </tr>
                     </tbody>
                 </table>

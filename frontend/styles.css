@@ -17,6 +17,132 @@ body {
     padding: 20px;
 }
 
+.header-controls {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.alert-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+}
+
+.alert-counter {
+    background: #e74c3c;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 50%;
+    font-size: 0.8rem;
+    font-weight: 700;
+    min-width: 24px;
+    text-align: center;
+    display: none;
+    animation: pulse 1s infinite;
+}
+
+.metric-range {
+    display: block;
+    color: #888;
+    font-size: 0.7rem;
+    margin-top: 4px;
+}
+
+.status-normal { color: #27ae60; }
+.status-warning { color: #f39c12; font-weight: 700; }
+.status-critical { color: #e74c3c; font-weight: 700; animation: blink 1s infinite; }
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.5; }
+}
+
+.alert-panel {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.alert-log {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    background: #f8f9fa;
+}
+
+.alert-log-entry {
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    border-left: 4px solid;
+}
+
+.alert-log-entry.alert-warning {
+    background: #fff3cd;
+    border-left-color: #f39c12;
+}
+
+.alert-log-entry.alert-critical {
+    background: #f8d7da;
+    border-left-color: #e74c3c;
+}
+
+.log-timestamp {
+    font-size: 0.8rem;
+    color: #666;
+    font-weight: 600;
+}
+
+.log-message {
+    font-weight: 600;
+    margin: 5px 0;
+}
+
+.log-value {
+    font-size: 0.8rem;
+    color: #555;
+}
+
+.no-alerts {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    margin: 20px 0;
+}
+
+.row-alert {
+    background-color: #fff5f5 !important;
+    border-left: 4px solid #e74c3c;
+}
+
+.alert-badge {
+    background: #e74c3c;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.ok-badge {
+    background: #27ae60;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.btn.warning {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    color: white;
+}
 .header {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
