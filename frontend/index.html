@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Industrial Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+</head>
+<body>
+<div class="container">
+    <header class="header">
+        <h1>IoT Industrial Dashboard</h1>
+        <div class="status-indicator">
+            <span id="connectionStatus" class="status-dot offline"></span>
+            <span>API Status</span>
+        </div>
+    </header>
+
+    <div class="dashboard">
+        <div class="metrics-cards">
+            <div class="metric-card temperature">
+                <div class="metric-icon">🌡️</div>
+                <div class="metric-content">
+                    <h3>Temperatura</h3>
+                    <span id="currentTemp" class="metric-value">--°C</span>
+                    <small id="tempTime" class="metric-time">--</small>
+                </div>
+            </div>
+
+            <div class="metric-card pressure">
+                <div class="metric-icon"></div>
+                <div class="metric-content">
+                    <h3>Presión</h3>
+                    <span id="currentPressure" class="metric-value">-- hPa</span>
+                    <small id="pressureTime" class="metric-time">--</small>
+                </div>
+            </div>
+
+            <div class="metric-card humidity">
+                <div class="metric-icon"></div>
+                <div class="metric-content">
+                    <h3>Humedad</h3>
+                    <span id="currentHumidity" class="metric-value">--%</span>
+                    <small id="humidityTime" class="metric-time">--</small>
+                </div>
+            </div>
+
+            <div class="metric-card total">
+                <div class="metric-icon"></div>
+                <div class="metric-content">
+                    <h3>Total Lecturas</h3>
+                    <span id="totalReadings" class="metric-value">--</span>
+                    <small id="lastUpdate" class="metric-time">--</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="refreshBtn" class="btn primary">Actualizar</button>
+            <button id="autoRefreshBtn" class="btn secondary">⏱️ Auto: OFF</button>
+            <select id="timeRange" class="select">
+                <option value="10">Últimos 10 datos</option>
+                <option value="20" selected>Últimos 20 datos</option>
+                <option value="50">Últimos 50 datos</option>
+            </select>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-container">
+                <h3>📈 Temperatura en Tiempo Real</h3>
+                <div id="temperatureChart"></div>
+            </div>
+
+            <div class="chart-container">
+                <h3>📊 Presión en Tiempo Real</h3>
+                <div id="pressureChart"></div>
+            </div>
+
+            <div class="chart-container full-width">
+                <h3>💧 Humedad en Tiempo Real</h3>
+                <div id="humidityChart"></div>
+            </div>
+        </div>
+
+        <div class="data-table-container">
+            <h3>📋 Datos Recientes</h3>
+            <div class="table-wrapper">
+                <table id="dataTable" class="data-table">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Temperatura (°C)</th>
+                        <th>Presión (hPa)</th>
+                        <th>Humedad (%)</th>
+                        <th>Timestamp</th>
+                    </tr>
+                    </thead>
+                    <tbody id="dataTableBody">
+                    <tr>
+                        <td colspan="5" class="no-data">Cargando datos...</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
