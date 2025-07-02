@@ -1,6 +1,7 @@
 package com.example.java;
 
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
+import org.eclipse.milo.opcua.stack.core.types.builtin.ByteString;
 import org.eclipse.milo.opcua.stack.core.types.builtin.NodeId;
 import org.eclipse.milo.opcua.stack.core.types.builtin.Variant;
 import org.eclipse.milo.opcua.stack.core.types.enumerated.TimestampsToReturn;
@@ -25,7 +26,6 @@ import java.util.Base64;
 import java.util.concurrent.ExecutionException;
 
 public class Main {
-
     private static final String URL = "opc.tcp://localhost:4840";
     private static final String PUBLIC_KEY_PATH = "../.keys/sensor_public.pem";
     private static final String NODE_ID = "ns=1;s=sensor";
@@ -62,9 +62,9 @@ public class Main {
             String keyContent = new String(keyBytes);
 
             keyContent = keyContent
-                    .replace("-----BEGIN PUBLIC KEY-----", "")
-                    .replace("-----END PUBLIC KEY-----", "")
-                    .replaceAll("\\s", "");
+                .replace("-----BEGIN PUBLIC KEY-----", "")
+                .replace("-----END PUBLIC KEY-----", "")
+                .replaceAll("\\s", "");
 
             byte[] decodedKey = Base64.getDecoder().decode(keyContent);
             X509EncodedKeySpec keySpec = new X509EncodedKeySpec(decodedKey);
@@ -111,8 +111,8 @@ public class Main {
             throw new IllegalArgumentException("Invalid data (len " + (32 + signatureLength) + ")");
         }
 
-        byte[] signature = new byte[(int)signatureLength];
-        System.arraycopy(rawData, 32, signature, 0, (int)signatureLength);
+        byte[] signature = new byte[(int) signatureLength];
+        System.arraycopy(rawData, 32, signature, 0, (int) signatureLength);
 
         return new SignedDataResult(sensorData, signature);
     }
@@ -132,8 +132,9 @@ public class Main {
 
     public static String formatTimestamp(long timestamp) {
         Instant instant = Instant.ofEpochMilli(timestamp);
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
-                .withZone(ZoneId.systemDefault());
+        DateTimeFormatter formatter = DateTimeFormatter
+            .ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+            .withZone(ZoneId.systemDefault());
         return formatter.format(instant);
     }
 
@@ -163,7 +164,7 @@ public class Main {
                             continue;
                         }
 
-                        byte[] rawData = (byte[]) variant.getValue();
+                        byte[] rawData = ((ByteString)variant.getValue()).bytes();
                         if (rawData.length == 0) {
                             System.out.println("No data received");
                             Thread.sleep(500);
@@ -185,21 +186,18 @@ public class Main {
                         System.out.println("    humidity         = " + sensorData.humidity);
                         System.out.println("    timestamp        = " + timestampString);
                         System.out.println("    signature_length = " + result.signature.length);
-
                     } catch (Exception e) {
                         System.err.println("Error processing data: " + e.getMessage());
                     }
 
                     Thread.sleep(500);
                 }
-
             } catch (InterruptedException | ExecutionException e) {
                 System.err.println("Error when connecting/reading: " + e.getMessage());
             } finally {
                 client.disconnect();
                 System.out.println("Closed connection.");
             }
-
         } catch (Exception e) {
             System.err.println("Error creating client: " + e.getMessage());
         }
