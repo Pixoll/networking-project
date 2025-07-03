@@ -15,8 +15,9 @@ export type Alert = {
   timestamp: number;
 };
 
-export type Datapoint = {
+export type Measurement = {
   id: number;
+  sensor_id: number;
   temperature: number;
   pressure: number;
   humidity: number;

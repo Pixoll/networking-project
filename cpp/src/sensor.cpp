@@ -16,9 +16,9 @@
 #include <openssl/err.h>
 
 struct __attribute__((packed)) SensorData {
-    int32_t id;
+    int32_t sensor_id;
     float temperature;
-    float pression;
+    float pressure;
     float humidity;
     uint64_t timestamp;
 };
@@ -162,9 +162,9 @@ int main(const int argc, const char *argv[]) {
 
     while (running) {
         SensorData sensor_data{
-            .id = sensor_id,
+            .sensor_id = sensor_id,
             .temperature = temp_dist(gen),
-            .pression = pres_dist(gen),
+            .pressure = pres_dist(gen),
             .humidity = hum_dist(gen),
             .timestamp = now(),
         };
@@ -193,12 +193,12 @@ int main(const int argc, const char *argv[]) {
         status = UA_Client_writeValueAttribute(client, dest, &value);
         if (status == UA_STATUSCODE_GOOD) {
             std::cout << "Signed data sent to node\n"
-                      << "    signLen = " << signature_length << '\n'
-                      << "    id = " << sensor_data.id << '\n'
-                      << "    temp = " << sensor_data.temperature << '\n'
-                      << "    pres = " << sensor_data.pression << '\n'
-                      << "    hum = " << sensor_data.humidity << '\n'
-                      << "    time = " << sensor_data.timestamp << std::endl;
+                      << "    signature_length = " << signature_length << '\n'
+                      << "    sensor_id        = " << sensor_data.sensor_id << '\n'
+                      << "    temperature      = " << sensor_data.temperature << '\n'
+                      << "    pressure         = " << sensor_data.pressure << '\n'
+                      << "    humidity         = " << sensor_data.humidity << '\n'
+                      << "    timestamp        = " << sensor_data.timestamp << std::endl;
         } else {
             std::cerr << "Could not write to node: " << UA_StatusCode_name(status) << std::endl;
         }

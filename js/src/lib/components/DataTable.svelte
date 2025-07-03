@@ -1,9 +1,9 @@
 <script lang="ts">
   import { alertRanges } from "$lib/config";
-  import type { AlertRange, Datapoint, ValueStatus } from "$lib/types";
+  import type { AlertRange, Measurement, ValueStatus } from "$lib/types";
 
   type Props = {
-    data?: Datapoint[];
+    data?: Measurement[];
   }
 
   let { data = [] }: Props = $props();

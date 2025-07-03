@@ -29,7 +29,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 
 public class Main {
-    private static final String URL = "opc.tcp://localhost:4840";
+    private static final String NODE_URL = "opc.tcp://localhost:4840";
     private static final String PUBLIC_KEY_PATH = "../.keys/sensor_public.pem";
     private static final String NODE_ID = "ns=1;s=sensor";
 
@@ -199,7 +199,7 @@ public class Main {
         final OpcUaClient client;
 
         try {
-            client = OpcUaClient.create(URL);
+            client = OpcUaClient.create(NODE_URL);
         } catch (final Exception e) {
             System.err.println("Error creating client: " + e.getMessage());
             return;

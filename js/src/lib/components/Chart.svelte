@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Datapoint } from "$lib/types";
+  import type { Measurement } from "$lib/types";
   import type { ApexOptions } from "apexcharts";
   import ApexCharts from "apexcharts";
   import { onMount } from "svelte";
@@ -8,8 +8,8 @@
     title: string;
     chartId: string;
     options: ApexOptions;
-    data?: Datapoint[];
-    dataKey: keyof Pick<Datapoint, "temperature" | "pressure" | "humidity">;
+    data?: Measurement[];
+    dataKey: keyof Pick<Measurement, "temperature" | "pressure" | "humidity">;
     fullWidth?: boolean;
   }
 
@@ -35,7 +35,7 @@
     }
   });
 
-  function updateChart(newData: Datapoint[]) {
+  function updateChart(newData: Measurement[]) {
     const sortedData = [...newData].sort((a, b) => a.timestamp - b.timestamp);
     const chartData = sortedData.map(item => ({
       x: item.timestamp,

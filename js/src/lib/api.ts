@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "./config";
-import type { Datapoint } from "./types";
+import type { Measurement } from "./types";
 
 type ApiResponse<T> = {
   response: Response;
@@ -11,18 +11,13 @@ type ApiResponse<T> = {
   error: string;
 });
 
-export async function checkApiStatus(): Promise<ApiResponse<{
-  status: "ok";
-}>> {
+export async function checkApiStatus(): Promise<ApiResponse<undefined>> {
   const response = await fetch(`${API_BASE_URL}/api/ping`);
   return await wrapResponse(response);
 }
 
-export async function getSensorData(limit: number): Promise<ApiResponse<{
-  count: number;
-  data: Datapoint[];
-}>> {
-  const response = await fetch(`${API_BASE_URL}/api/sensors/data?limit=${limit}`);
+export async function getSensorData(limit: number): Promise<ApiResponse<Measurement[]>> {
+  const response = await fetch(`${API_BASE_URL}/api/measurements?limit=${limit}`);
   return await wrapResponse(response);
 }
 
@@ -30,14 +25,14 @@ async function wrapResponse<T>(response: Response): Promise<ApiResponse<T>> {
   if (response.ok) {
     return {
       ok: true,
-      data: await response.json(),
+      data: await response.json().catch(() => undefined),
       response,
     };
   }
 
   return {
     ok: false,
-    error: await response.json().then(e => e.error),
+    error: await response.json().then(e => e.error).catch(() => undefined),
     response,
   }
 }

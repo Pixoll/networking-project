@@ -5,10 +5,10 @@
   import DataTable from "$lib/components/DataTable.svelte";
   import MetricCard from "$lib/components/MetricCard.svelte";
   import { alertRanges, humidityOptions, pressureOptions, temperatureOptions } from "$lib/config";
-  import type { Alert, AlertRange, Datapoint, ValueStatus } from "$lib/types";
+  import type { Alert, AlertRange, Measurement, ValueStatus } from "$lib/types";
   import { onDestroy, onMount } from "svelte";
 
-  let data = $state<Datapoint[]>([]);
+  let data = $state<Measurement[]>([]);
   let isOnline = $state(false);
   let isAutoRefreshEnabled = $state(false);
   let currentLimit = $state(20);
@@ -75,15 +75,15 @@
       }
 
       const apiResponse = response.data;
-      const latestTimestamp = apiResponse.data[0]?.timestamp || 0;
+      const latestTimestamp = apiResponse[0]?.timestamp || 0;
       const hasNewData = latestTimestamp > lastDataTimestamp;
 
       if (hasNewData) {
         lastDataTimestamp = latestTimestamp;
-        showNewDataNotification(apiResponse.data[0]);
+        showNewDataNotification(apiResponse[0]);
       }
 
-      data = apiResponse.data;
+      data = apiResponse;
     } catch (error) {
       console.error(error);
       showError("Error al cargar los datos de la API");
@@ -104,7 +104,7 @@
     document.querySelectorAll(".floating-alert").forEach(alert => alert.remove());
   }
 
-  function checkAlerts(latestData: Datapoint) {
+  function checkAlerts(latestData: Measurement) {
     const { temperature, pressure, humidity, timestamp } = latestData;
     const alerts: Alert[] = [];
 
@@ -229,7 +229,7 @@
     alertLog = [alert, ...alertLog.slice(0, 19)];
   }
 
-  function showNewDataNotification(newData: Datapoint) {
+  function showNewDataNotification(newData: Measurement) {
     if (!newData) return;
 
     const notification = document.createElement("div");
