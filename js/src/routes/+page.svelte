@@ -1,40 +1,9 @@
 <script lang="ts">
+  import { checkApiStatus, getSensorData } from "$lib/api";
+  import { alertRanges, humidityOptions, pressureOptions, temperatureOptions } from "$lib/config";
+  import type { Alert, AlertRange, Datapoint, ValueStatus } from "$lib/types";
   import ApexCharts from "apexcharts";
   import { onMount } from "svelte";
-
-  type AlertRange = {
-    min: number;
-    max: number;
-  };
-
-  type ValueStatus = "critical" | "warning" | "normal";
-
-  type Alert = {
-    type: string;
-    severity: ValueStatus;
-    message: string;
-    value: number;
-    threshold: number;
-    timestamp: number;
-  };
-
-  type Datapoint = {
-    id: number;
-    temperature: number;
-    pressure: number;
-    humidity: number;
-    timestamp: number;
-  };
-
-  type AlertType = "temperature" | "pressure" | "humidity";
-
-  const API_BASE_URL = "http://localhost:5000";
-
-  const alertRanges: Record<AlertType, AlertRange> = {
-    temperature: { min: 10, max: 40 },
-    pressure: { min: 990, max: 1040 },
-    humidity: { min: 20, max: 90 }
-  };
 
   class IoTDashboard {
     private temperatureChart: ApexCharts;
@@ -56,195 +25,21 @@
 
       this.activeAlerts = new Set();
 
-      const commonOptions = {
-        chart: {
-          type: "line",
-          height: 300,
-          animations: {
-            enabled: true,
-            easing: "easeinout",
-            speed: 800
-          },
-          toolbar: {
-            show: false
-          },
-          zoom: {
-            enabled: false
-          }
-        },
-        stroke: {
-          curve: "smooth",
-          width: 3
-        },
-        markers: {
-          size: 6,
-          strokeWidth: 2,
-          fillOpacity: 1,
-          strokeOpacity: 1
-        },
-        grid: {
-          borderColor: "#e7e7e7",
-          row: {
-            colors: ["#f3f3f3", "transparent"],
-            opacity: 0.5
-          }
-        },
-        xaxis: {
-          type: "datetime",
-          labels: {
-            format: "HH:mm:ss"
-          }
-        },
-        tooltip: {
-          x: {
-            format: "dd/MM/yy HH:mm:ss"
-          }
-        },
-        annotations: {
-          yaxis: []
-        }
-      };
-
-      const temperatureOptions = {
-        ...commonOptions,
-        series: [{
-          name: "Temperatura (°C)",
-          data: []
-        }],
-        colors: ["#ff6b6b"],
-        yaxis: {
-          title: {
-            text: "Temperatura (°C)"
-          },
-          labels: {
-            formatter: (value: number) => `${value.toFixed(1)}°C`
-          }
-        },
-        annotations: {
-          yaxis: [
-            {
-              y: alertRanges.temperature.max,
-              borderColor: "#e74c3c",
-              borderWidth: 2,
-              strokeDashArray: 5,
-              label: {
-                text: `Máx: ${alertRanges.temperature.max}°C`,
-                style: { color: "#e74c3c", background: "#ffffff" }
-              }
-            },
-            {
-              y: alertRanges.temperature.min,
-              borderColor: "#3498db",
-              borderWidth: 2,
-              strokeDashArray: 5,
-              label: {
-                text: `Mín: ${alertRanges.temperature.min}°C`,
-                style: { color: "#3498db", background: "#ffffff" }
-              }
-            }
-          ]
-        }
-      };
-
-      const pressureOptions = {
-        ...commonOptions,
-        series: [{
-          name: "Presión (hPa)",
-          data: []
-        }],
-        colors: ["#4ecdc4"],
-        yaxis: {
-          title: {
-            text: "Presión (hPa)"
-          },
-          labels: {
-            formatter: (value: number) => `${value.toFixed(1)} hPa`
-          }
-        },
-        annotations: {
-          yaxis: [
-            {
-              y: alertRanges.pressure.max,
-              borderColor: "#e74c3c",
-              borderWidth: 2,
-              strokeDashArray: 5,
-              label: {
-                text: `Máx: ${alertRanges.pressure.max} hPa`,
-                style: { color: "#e74c3c", background: "#ffffff" }
-              }
-            },
-            {
-              y: alertRanges.pressure.min,
-              borderColor: "#3498db",
-              borderWidth: 2,
-              strokeDashArray: 5,
-              label: {
-                text: `Mín: ${alertRanges.pressure.min} hPa`,
-                style: { color: "#3498db", background: "#ffffff" }
-              }
-            }
-          ]
-        }
-      };
-
-      const humidityOptions = {
-        ...commonOptions,
-        series: [{
-          name: "Humedad (%)",
-          data: []
-        }],
-        colors: ["#45b7d1"],
-        yaxis: {
-          title: {
-            text: "Humedad (%)"
-          },
-          labels: {
-            formatter: (value: number) => `${value.toFixed(1)}%`
-          },
-          min: 0,
-          max: 100
-        },
-        annotations: {
-          yaxis: [
-            {
-              y: alertRanges.humidity.max,
-              borderColor: "#e74c3c",
-              borderWidth: 2,
-              strokeDashArray: 5,
-              label: {
-                text: `Máx: ${alertRanges.humidity.max}%`,
-                style: { color: "#e74c3c", background: "#ffffff" }
-              }
-            },
-            {
-              y: alertRanges.humidity.min,
-              borderColor: "#3498db",
-              borderWidth: 2,
-              strokeDashArray: 5,
-              label: {
-                text: `Mín: ${alertRanges.humidity.min}%`,
-                style: { color: "#3498db", background: "#ffffff" }
-              }
-            }
-          ]
-        }
-      };
-
       this.temperatureChart = new ApexCharts(
         document.querySelector("#temperatureChart"),
-        temperatureOptions
+        temperatureOptions,
       );
       this.temperatureChart.render();
 
       this.pressureChart = new ApexCharts(
         document.querySelector("#pressureChart"),
-        pressureOptions
+        pressureOptions,
       );
       this.pressureChart.render();
 
       this.humidityChart = new ApexCharts(
         document.querySelector("#humidityChart"),
-        humidityOptions
+        humidityOptions,
       );
       this.humidityChart.render();
 
@@ -278,7 +73,7 @@
 
     async checkApiStatus(): Promise<boolean> {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/ping`);
+        const response = await checkApiStatus();
         const statusElement = document.getElementById("connectionStatus");
 
         if (response.ok) {
@@ -306,14 +101,14 @@
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/sensors/data?limit=${this.currentLimit}`);
+        const response = await getSensorData(this.currentLimit);
 
         if (!response.ok) {
           // noinspection ExceptionCaughtLocallyJS
-          throw new Error(`HTTP error! status: ${response.status}`);
+          throw new Error(`HTTP error! status: ${response.response.status}`);
         }
 
-        const apiResponse = await response.json() as { data: Datapoint[] };
+        const apiResponse = response.data;
 
         const latestTimestamp = apiResponse.data[0]?.timestamp || 0;
         const hasNewData = latestTimestamp > this.lastDataTimestamp;
