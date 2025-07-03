@@ -4,12 +4,16 @@
   import ApexCharts from "apexcharts";
   import { onMount } from "svelte";
 
-  export let title: string;
-  export let chartId: string;
-  export let options: ApexOptions;
-  export let data: Datapoint[] = [];
-  export let dataKey: keyof Pick<Datapoint, "temperature" | "pressure" | "humidity">;
-  export let fullWidth = false;
+  type Props = {
+    title: string;
+    chartId: string;
+    options: ApexOptions;
+    data?: Datapoint[];
+    dataKey: keyof Pick<Datapoint, "temperature" | "pressure" | "humidity">;
+    fullWidth?: boolean;
+  }
+
+  let { title, chartId, options, data = [], dataKey, fullWidth = false }: Props = $props();
 
   let chart: ApexCharts;
   let chartElement: HTMLElement;
@@ -25,9 +29,11 @@
     };
   });
 
-  $: if (chart && data) {
-    updateChart(data);
-  }
+  $effect(() => {
+    if (chart && data) {
+      updateChart(data);
+    }
+  });
 
   function updateChart(newData: Datapoint[]) {
     const sortedData = [...newData].sort((a, b) => a.timestamp - b.timestamp);

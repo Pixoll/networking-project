@@ -1,7 +1,11 @@
 <script lang="ts">
   import type { Alert } from "$lib/types";
 
-  export let alerts: Alert[] = [];
+  type Props = {
+    alerts: Alert[];
+  }
+
+  let { alerts }: Props = $props();
 
   function formatTimestamp(timestamp: number): string {
     return new Date(timestamp).toLocaleString("en-GB", {

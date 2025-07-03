@@ -1,13 +1,17 @@
 <script lang="ts">
   import type { ValueStatus } from "$lib/types";
 
-  export let title: string;
-  export let icon: string;
-  export let value: string;
-  export let time: string;
-  export let range: string;
-  export let status: ValueStatus = "normal";
-  export let bgClass: string;
+  type Props = {
+    title: string;
+    icon: string;
+    value: string;
+    time: string;
+    range: string;
+    status?: ValueStatus;
+    bgClass: string;
+  }
+
+  let { title, icon, value, time, range, status = "normal", bgClass }: Props = $props();
 </script>
 
 <div class="metric-card {bgClass}">

@@ -8,33 +8,37 @@
   import type { Alert, AlertRange, Datapoint, ValueStatus } from "$lib/types";
   import { onDestroy, onMount } from "svelte";
 
-  let data: Datapoint[] = [];
-  let isOnline = false;
-  let isAutoRefreshEnabled = false;
-  let currentLimit = 20;
-  let refreshIntervalMs = 2000;
-  let activeAlerts: Set<string> = new Set();
-  let alertLog: Alert[] = [];
-  let lastDataTimestamp = 0;
-  let autoRefreshInterval: number | null = null;
+  let data = $state<Datapoint[]>([]);
+  let isOnline = $state(false);
+  let isAutoRefreshEnabled = $state(false);
+  let currentLimit = $state(20);
+  let refreshIntervalMs = $state(2000);
+  let activeAlerts = $state<Set<string>>(new Set());
+  let alertLog = $state<Alert[]>([]);
+  let lastDataTimestamp = $state(0);
+  let autoRefreshInterval = $state<number | null>(null);
 
-  $: latestData = data[0];
-  $: alertCount = activeAlerts.size;
-  $: currentTime = latestData ? formatTimestamp(latestData.timestamp) : "--";
+  const latestData = $derived(data[0]);
+  const alertCount = $derived(activeAlerts.size);
+  const currentTime = $derived(latestData ? formatTimestamp(latestData.timestamp) : "--");
 
-  $: tempStatus = latestData ? getValueStatus(latestData.temperature, alertRanges.temperature) : "normal";
-  $: pressureStatus = latestData ? getValueStatus(latestData.pressure, alertRanges.pressure) : "normal";
-  $: humidityStatus = latestData ? getValueStatus(latestData.humidity, alertRanges.humidity) : "normal";
+  const tempStatus = $derived(latestData ? getValueStatus(latestData.temperature, alertRanges.temperature) : "normal");
+  const pressureStatus = $derived(latestData ? getValueStatus(latestData.pressure, alertRanges.pressure) : "normal");
+  const humidityStatus = $derived(latestData ? getValueStatus(latestData.humidity, alertRanges.humidity) : "normal");
 
-  $: if (isAutoRefreshEnabled && refreshIntervalMs) {
-    startAutoRefresh();
-  } else {
-    stopAutoRefresh();
-  }
+  $effect(() => {
+    if (isAutoRefreshEnabled && refreshIntervalMs) {
+      startAutoRefresh();
+    } else {
+      stopAutoRefresh();
+    }
+  });
 
-  $: if (latestData) {
-    checkAlerts(latestData);
-  }
+  $effect(() => {
+    if (latestData) {
+      checkAlerts(latestData);
+    }
+  });
 
   onMount(() => {
     loadData();
@@ -175,7 +179,6 @@
     if (activeAlerts.has(alertKey)) return;
 
     activeAlerts.add(alertKey);
-    activeAlerts = activeAlerts;
 
     const alertDiv = document.createElement("div");
     alertDiv.className = `floating-alert alert-${alert.severity}`;
@@ -219,12 +222,11 @@
     if (alertDiv.parentNode) {
       alertDiv.remove();
       activeAlerts.delete(alertKey);
-      activeAlerts = activeAlerts;
     }
   }
 
   function addAlertToLog(alert: Alert) {
-    alertLog = [alert, ...alertLog.slice(0, 19)]
+    alertLog = [alert, ...alertLog.slice(0, 19)];
   }
 
   function showNewDataNotification(newData: Datapoint) {
@@ -441,7 +443,7 @@
     </div>
 
     <div class="controls">
-      <button class="btn primary" on:click={loadData}>
+      <button class="btn primary" onclick={loadData}>
         🔄 Actualizar
       </button>
 
@@ -449,22 +451,22 @@
         class="btn"
         class:primary={isAutoRefreshEnabled}
         class:secondary={!isAutoRefreshEnabled}
-        on:click={toggleAutoRefresh}
+        onclick={toggleAutoRefresh}
       >
         ⏱️ Auto: {isAutoRefreshEnabled ? `ON (${refreshIntervalMs / 1000}s)` : "OFF"}
       </button>
 
-      <button class="btn warning" on:click={clearAllAlerts}>
+      <button class="btn warning" onclick={clearAllAlerts}>
         🗑️ Limpiar Alertas
       </button>
 
-      <select class="select" bind:value={currentLimit} on:change={handleTimeRangeChange}>
+      <select class="select" bind:value={currentLimit} onchange={handleTimeRangeChange}>
         <option value={10}>Últimos 10 datos</option>
         <option value={20}>Últimos 20 datos</option>
         <option value={50}>Últimos 50 datos</option>
       </select>
 
-      <select class="select" bind:value={refreshIntervalMs} on:change={handleRefreshRateChange}>
+      <select class="select" bind:value={refreshIntervalMs} onchange={handleRefreshRateChange}>
         <option value={1000}>1 segundo</option>
         <option value={2000}>2 segundos</option>
         <option value={5000}>5 segundos</option>
@@ -680,3 +682,4 @@
     }
   }
 </style>
+

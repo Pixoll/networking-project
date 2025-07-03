@@ -2,7 +2,11 @@
   import { alertRanges } from "$lib/config";
   import type { AlertRange, Datapoint, ValueStatus } from "$lib/types";
 
-  export let data: Datapoint[] = [];
+  type Props = {
+    data?: Datapoint[];
+  }
+
+  let { data = [] }: Props = $props();
 
   function formatTimestamp(timestamp: number): string {
     return new Date(timestamp).toLocaleString("en-GB", {
