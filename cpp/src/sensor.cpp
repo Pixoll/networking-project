@@ -133,7 +133,7 @@ int main(const int argc, const char *argv[]) {
         return 1;
     }
 
-    if (!load_private_key("../../../.keys/sensor_private.pem")) {
+    if (!load_private_key("../../.keys/sensor_private.pem")) {
         return EXIT_FAILURE;
     }
 
