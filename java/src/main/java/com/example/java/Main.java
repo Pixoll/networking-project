@@ -4,10 +4,7 @@ import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.sdk.client.api.subscriptions.UaMonitoredItem;
 import org.eclipse.milo.opcua.sdk.client.api.subscriptions.UaSubscription;
 import org.eclipse.milo.opcua.stack.core.AttributeId;
-import org.eclipse.milo.opcua.stack.core.types.builtin.ByteString;
-import org.eclipse.milo.opcua.stack.core.types.builtin.NodeId;
-import org.eclipse.milo.opcua.stack.core.types.builtin.QualifiedName;
-import org.eclipse.milo.opcua.stack.core.types.builtin.Variant;
+import org.eclipse.milo.opcua.stack.core.types.builtin.*;
 import org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.UInteger;
 import org.eclipse.milo.opcua.stack.core.types.enumerated.MonitoringMode;
 import org.eclipse.milo.opcua.stack.core.types.enumerated.TimestampsToReturn;
@@ -36,44 +33,25 @@ public class Main {
     private static final String PUBLIC_KEY_PATH = "../.keys/sensor_public.pem";
     private static final String NODE_ID = "ns=1;s=sensor";
 
-    public static class SensorData {
-        public final int sensorId;
-        public final float temperature;
-        public final float pressure;
-        public final float humidity;
-        public final long timestamp;
-
-        public SensorData(
-            final int sensorId,
-            final float temperature,
-            final float pressure,
-            final float humidity,
-            final long timestamp
-        ) {
-            this.sensorId = sensorId;
-            this.temperature = temperature;
-            this.pressure = pressure;
-            this.humidity = humidity;
-            this.timestamp = timestamp;
-        }
+    public record SensorData(
+        int sensorId,
+        float temperature,
+        float pressure,
+        float humidity,
+        long timestamp
+    ) {
     }
 
-    public static class SignedDataResult {
-        public final byte[] sensorData;
-        public final byte[] signature;
-
-        public SignedDataResult(final byte[] sensorData, final byte[] signature) {
-            this.sensorData = sensorData;
-            this.signature = signature;
-        }
+    public record SignedDataResult(
+        byte[] sensorData,
+        byte[] signature
+    ) {
     }
 
     public static PublicKey loadPublicKey(final String keyPath) {
         try {
             final byte[] keyBytes = Files.readAllBytes(Paths.get(keyPath));
-            String keyContent = new String(keyBytes);
-
-            keyContent = keyContent
+            final String keyContent = new String(keyBytes)
                 .replace("-----BEGIN PUBLIC KEY-----", "")
                 .replace("-----END PUBLIC KEY-----", "")
                 .replaceAll("\\s", "");
@@ -83,7 +61,6 @@ public class Main {
             final KeyFactory keyFactory = KeyFactory.getInstance("RSA");
 
             return keyFactory.generatePublic(keySpec);
-
         } catch (final IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
             System.err.println("Error loading public key: " + e.getMessage());
             return null;
@@ -96,7 +73,6 @@ public class Main {
             sig.initVerify(publicKey);
             sig.update(data);
             return sig.verify(signature);
-
         } catch (final NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
             System.err.println("Error during signature verification: " + e.getMessage());
             return false;
@@ -150,6 +126,69 @@ public class Main {
         return formatter.format(instant);
     }
 
+    public static UaMonitoredItem getMonitoredItem(final OpcUaClient client)
+        throws ExecutionException, InterruptedException {
+        final NodeId nodeId = NodeId.parse(NODE_ID);
+
+        final UaSubscription subscription = client
+            .getSubscriptionManager()
+            .createSubscription(500.0)
+            .get();
+
+        final MonitoringParameters parameters = new MonitoringParameters(
+            UInteger.valueOf(1),
+            500.0,
+            null,
+            UInteger.valueOf(10),
+            true
+        );
+
+        final MonitoredItemCreateRequest request = new MonitoredItemCreateRequest(
+            new ReadValueId(nodeId, AttributeId.Value.uid(), null, QualifiedName.NULL_VALUE),
+            MonitoringMode.Reporting,
+            parameters
+        );
+
+        return subscription.createMonitoredItems(
+            TimestampsToReturn.Both,
+            List.of(request)
+        ).get().getFirst();
+    }
+
+    public static void consumeValue(final PublicKey publicKey, final DataValue value) {
+        try {
+            final Variant variant = value.getValue();
+            if (variant == null || variant.getValue() == null) {
+                System.out.println("No data received");
+                return;
+            }
+
+            final byte[] rawData = ((ByteString) variant.getValue()).bytes();
+            if (rawData == null || rawData.length == 0) {
+                System.out.println("No data received");
+                return;
+            }
+
+            final SignedDataResult result = deserializeSignedData(rawData);
+            final boolean isValid = verifySignature(result.sensorData, result.signature, publicKey);
+
+            final SensorData sensorData = parseSensorData(result.sensorData);
+            final String timestampString = formatTimestamp(sensorData.timestamp);
+
+            final String statusText = isValid ? "VALID" : "INVALID";
+
+            System.out.println("\n[sub] signature: " + statusText);
+            System.out.println("    sensor_id        = " + sensorData.sensorId);
+            System.out.println("    temperature      = " + sensorData.temperature);
+            System.out.println("    pressure         = " + sensorData.pressure);
+            System.out.println("    humidity         = " + sensorData.humidity);
+            System.out.println("    timestamp        = " + timestampString);
+            System.out.println("    signature_length = " + result.signature.length);
+        } catch (final Exception e) {
+            System.err.println("Error processing data: " + e.getMessage());
+        }
+    }
+
     public static void main(final String[] args) {
         final PublicKey publicKey = loadPublicKey(PUBLIC_KEY_PATH);
         if (publicKey == null) {
@@ -157,85 +196,35 @@ public class Main {
             return;
         }
 
+        final OpcUaClient client;
+
         try {
-            final OpcUaClient client = OpcUaClient.create(URL);
-            final CountDownLatch shutdownLatch = new CountDownLatch(1);
-
-            try {
-                client.connect().get();
-                System.out.println("Connected to OPC UA server.");
-
-                final NodeId nodeId = NodeId.parse(NODE_ID);
-
-                final UaSubscription subscription = client
-                    .getSubscriptionManager()
-                    .createSubscription(500.0)
-                    .get();
-
-                final MonitoringParameters parameters = new MonitoringParameters(
-                    UInteger.valueOf(1),
-                    500.0,
-                    null,
-                    UInteger.valueOf(10),
-                    true
-                );
-
-                final MonitoredItemCreateRequest request = new MonitoredItemCreateRequest(
-                    new ReadValueId(nodeId, AttributeId.Value.uid(), null, QualifiedName.NULL_VALUE),
-                    MonitoringMode.Reporting,
-                    parameters
-                );
-
-                final UaMonitoredItem monitoredItem = subscription.createMonitoredItems(
-                    TimestampsToReturn.Both,
-                    List.of(request)
-                ).get().get(0);
-
-                monitoredItem.setValueConsumer((item, value) -> {
-                    try {
-                        final Variant variant = value.getValue();
-                        if (variant == null || variant.getValue() == null) {
-                            System.out.println("No data received");
-                            return;
-                        }
-
-                        final byte[] rawData = ((ByteString) variant.getValue()).bytes();
-                        if (rawData == null || rawData.length == 0) {
-                            System.out.println("No data received");
-                            return;
-                        }
-
-                        final SignedDataResult result = deserializeSignedData(rawData);
-                        final boolean isValid = verifySignature(result.sensorData, result.signature, publicKey);
-
-                        final SensorData sensorData = parseSensorData(result.sensorData);
-                        final String timestampString = formatTimestamp(sensorData.timestamp);
-
-                        final String statusText = isValid ? "VALID" : "INVALID";
-
-                        System.out.println("\n[sub] signature: " + statusText);
-                        System.out.println("    sensor_id        = " + sensorData.sensorId);
-                        System.out.println("    temperature      = " + sensorData.temperature);
-                        System.out.println("    pressure         = " + sensorData.pressure);
-                        System.out.println("    humidity         = " + sensorData.humidity);
-                        System.out.println("    timestamp        = " + timestampString);
-                        System.out.println("    signature_length = " + result.signature.length);
-                    } catch (final Exception e) {
-                        System.err.println("Error processing data: " + e.getMessage());
-                    }
-                });
-
-                Runtime.getRuntime().addShutdownHook(new Thread(shutdownLatch::countDown));
-
-                shutdownLatch.await();
-            } catch (final InterruptedException | ExecutionException e) {
-                System.err.println("Error when connecting/reading: " + e.getMessage());
-            } finally {
-                client.disconnect();
-                System.out.println("Closed connection.");
-            }
+            client = OpcUaClient.create(URL);
         } catch (final Exception e) {
             System.err.println("Error creating client: " + e.getMessage());
+            return;
+        }
+
+        final CountDownLatch shutdownLatch = new CountDownLatch(1);
+
+        try {
+            client.connect().get();
+            System.out.println("Connected to OPC UA server.");
+
+            final UaMonitoredItem monitoredItem = getMonitoredItem(client);
+
+            monitoredItem.setValueConsumer((item, value) ->
+                consumeValue(publicKey, value)
+            );
+
+            Runtime.getRuntime().addShutdownHook(new Thread(shutdownLatch::countDown));
+
+            shutdownLatch.await();
+        } catch (final InterruptedException | ExecutionException e) {
+            System.err.println("Error when connecting/reading: " + e.getMessage());
+        } finally {
+            client.disconnect();
+            System.out.println("Closed connection.");
         }
     }
 }

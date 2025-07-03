@@ -1,0 +1,9 @@
+[versions]
+miloSdkClientVersion = "0.6.16"
+slf4jApiVersion = "2.0.17"
+logbackClassicVersion = "1.5.18"
+
+[libraries]
+milo-sdk-client = { group = "org.eclipse.milo", name = "sdk-client", version.ref = "miloSdkClientVersion" }
+slf4j-api = { group = "org.slf4j", name = "slf4j-api", version.ref = "slf4jApiVersion" }
+logback-classic = { group = "ch.qos.logback", name = "logback-classic", version.ref = "logbackClassicVersion" }
