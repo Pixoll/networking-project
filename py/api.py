@@ -9,227 +9,227 @@ CORS(app)
 sensor_data = [
     {
         "id": 1,
-        "temperature": 25.5,
-        "pressure": 1013.25,
-        "humidity": 65.2,
-        "timestamp": 1720328207000,
-    },
-    {
-        "id": 2,
-        "temperature": 22.3,
-        "pressure": 1015.80,
-        "humidity": 58.7,
-        "timestamp": 1720327907000,
-    },
-    {
-        "id": 3,
         "temperature": 26.1,
         "pressure": 1012.90,
         "humidity": 67.5,
-        "timestamp": 1720327607000,
+        "timestamp": 1718461522000,
     },
     {
-        "id": 4,
+        "id": 2,
         "temperature": 24.2,
         "pressure": 1014.8,
         "humidity": 68.5,
-        "timestamp": 1718439015000,  # 15 jun 08:30:15
+        "timestamp": 1718542658000,
     },
     {
-        "id": 5,
+        "id": 3,
         "temperature": 29.1,
         "pressure": 1011.3,
         "humidity": 55.2,
-        "timestamp": 1718461522000,  # 15 jun 14:45:22
+        "timestamp": 1718612698000,
     },
     {
-        "id": 6,
+        "id": 4,
         "temperature": 26.3,
         "pressure": 1013.4,
         "humidity": 64.2,
-        "timestamp": 1718705733000,  # 18 jun 10:15:33
+        "timestamp": 1718705733000,
     },
     {
-        "id": 7,
+        "id": 5,
         "temperature": 31.8,
         "pressure": 1009.1,
         "humidity": 47.5,
-        "timestamp": 1718729845000,  # 18 jun 16:57:25
+        "timestamp": 1718729845000,
     },
     {
-        "id": 8,
+        "id": 6,
         "temperature": 21.8,
         "pressure": 1016.7,
         "humidity": 74.3,
-        "timestamp": 1718863330000,  # 20 jun 06:15:30
+        "timestamp": 1718863330000,
     },
     {
-        "id": 9,
+        "id": 7,
         "temperature": 34.5,
         "pressure": 1006.8,
         "humidity": 39.7,
-        "timestamp": 1718885218000,  # 20 jun 12:20:18
+        "timestamp": 1718885218000,
     },
     {
-        "id": 10,
+        "id": 8,
         "temperature": 28.9,
         "pressure": 1010.4,
         "humidity": 58.1,
-        "timestamp": 1718908512000,  # 20 jun 18:45:12
+        "timestamp": 1718908512000,
     },
     {
-        "id": 11,
+        "id": 9,
         "temperature": 37.2,
         "pressure": 1004.5,
         "humidity": 32.1,
-        "timestamp": 1719058818000,  # 22 jun 14:40:18
+        "timestamp": 1719058818000,
     },
     {
-        "id": 12,
+        "id": 10,
         "temperature": 30.4,
         "pressure": 1008.2,
         "humidity": 44.9,
-        "timestamp": 1719082935000,  # 22 jun 21:22:15
+        "timestamp": 1719082935000,
     },
     {
-        "id": 13,
+        "id": 11,
         "temperature": 24.7,
         "pressure": 1014.9,
         "humidity": 69.3,
-        "timestamp": 1719221145000,  # 24 jun 08:25:45
+        "timestamp": 1719221145000,
     },
     {
-        "id": 14,
+        "id": 12,
         "temperature": 32.6,
         "pressure": 1007.6,
         "humidity": 43.2,
-        "timestamp": 1719243422000,  # 24 jun 14:37:02
+        "timestamp": 1719243422000,
     },
     {
-        "id": 15,
+        "id": 13,
         "temperature": 25.6,
         "pressure": 1013.5,
         "humidity": 66.7,
-        "timestamp": 1719308445000,  # 25 jun 09:30:45
+        "timestamp": 1719308445000,
     },
     {
-        "id": 16,
+        "id": 14,
         "temperature": 33.2,
         "pressure": 1007.2,
         "humidity": 42.9,
-        "timestamp": 1719329233000,  # 25 jun 15:20:33
+        "timestamp": 1719329233000,
     },
     {
-        "id": 17,
+        "id": 15,
         "temperature": 23.1,
         "pressure": 1015.8,
         "humidity": 71.6,
-        "timestamp": 1719481230000,  # 27 jun 07:13:50
+        "timestamp": 1719481230000,
     },
     {
-        "id": 18,
+        "id": 16,
         "temperature": 35.8,
         "pressure": 1005.3,
         "humidity": 36.4,
-        "timestamp": 1719508522000,  # 27 jun 14:48:42
+        "timestamp": 1719508522000,
     },
     {
-        "id": 19,
+        "id": 17,
         "temperature": 27.9,
         "pressure": 1011.7,
         "humidity": 59.8,
-        "timestamp": 1719574845000,  # 28 jun 09:14:05
+        "timestamp": 1719574845000,
     },
     {
-        "id": 20,
+        "id": 18,
         "temperature": 19.2,
         "pressure": 1018.4,
         "humidity": 83.7,
-        "timestamp": 1719606330000,  # 28 jun 18:58:50
+        "timestamp": 1719606330000,
     },
     {
-        "id": 21,
+        "id": 19,
         "temperature": 29.4,
         "pressure": 1011.6,
         "humidity": 56.8,
-        "timestamp": 1719665415000,  # 29 jun 11:50:15
+        "timestamp": 1719665415000,
     },
     {
-        "id": 22,
+        "id": 20,
         "temperature": 26.8,
         "pressure": 1013.1,
         "humidity": 62.5,
-        "timestamp": 1719691822000,  # 29 jun 19:10:22
+        "timestamp": 1719691822000,
     },
     {
-        "id": 23,
+        "id": 21,
         "temperature": 23.4,
         "pressure": 1015.2,
         "humidity": 71.8,
-        "timestamp": 1719736522000,  # 30 jun 07:42:02
+        "timestamp": 1719736522000,
     },
     {
-        "id": 24,
+        "id": 22,
         "temperature": 30.7,
         "pressure": 1009.6,
         "humidity": 51.3,
-        "timestamp": 1719757215000,  # 30 jun 13:33:35
+        "timestamp": 1719757215000,
     },
     {
-        "id": 25,
+        "id": 23,
         "temperature": 24.1,
         "pressure": 1014.3,
         "humidity": 73.6,
-        "timestamp": 1719794730000,  # 30 jun 23:58:50
+        "timestamp": 1719794730000,
     },
     {
-        "id": 26,
+        "id": 24,
         "temperature": 18.9,
         "pressure": 1018.1,
         "humidity": 85.2,
-        "timestamp": 1719808245000,  # 01 jul 03:44:05
+        "timestamp": 1719808245000,
     },
     {
-        "id": 27,
+        "id": 25,
         "temperature": 25.8,
         "pressure": 1013.7,
         "humidity": 65.9,
-        "timestamp": 1719829522000,  # 01 jul 09:38:42
+        "timestamp": 1719829522000,
     },
     {
-        "id": 28,
+        "id": 26,
         "temperature": 32.1,
         "pressure": 1008.3,
         "humidity": 46.8,
-        "timestamp": 1719855045000,  # 01 jul 16:44:05
+        "timestamp": 1719855045000,
     },
     {
-        "id": 29,
+        "id": 27,
         "temperature": 26.9,
         "pressure": 1013.9,
         "humidity": 67.5,
-        "timestamp": 1719872122000,  # 01 jul 21:28:42
+        "timestamp": 1719872122000,
     },
     {
-        "id": 30,
+        "id": 28,
         "temperature": 22.3,
         "pressure": 1015.6,
         "humidity": 75.9,
-        "timestamp": 1719887415000,  # 02 jul 01:43:35
+        "timestamp": 1719887415000,
     },
     {
-        "id": 31,
+        "id": 29,
         "temperature": 21.1,
         "pressure": 1016.2,
         "humidity": 78.4,
-        "timestamp": 1719891930000,  # 02 jul 02:58:50
+        "timestamp": 1719906330000,
     },
     {
-        "id": 32,
+        "id": 30,
         "temperature": 20.7,
         "pressure": 1016.8,
         "humidity": 80.1,
-        "timestamp": 1719894045000,  # 02 jul 03:34:05
+        "timestamp": 1719922845000,
+    },
+    {
+        "id": 31,
+        "temperature": 2,
+        "pressure": 953.25,
+        "humidity": 6,
+        "timestamp": 1719946607000,
+    },
+    {
+        "id": 32,
+        "temperature": 52.3,
+        "pressure": 1055.80,
+        "humidity": 100,
+        "timestamp": 1719957107000,
     },
 ]
 
