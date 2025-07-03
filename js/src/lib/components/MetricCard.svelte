@@ -100,15 +100,18 @@
     margin-top: 4px;
   }
 
+  /*noinspection CssUnusedSymbol*/
   .status-normal {
     color: #27ae60;
   }
 
+  /*noinspection CssUnusedSymbol*/
   .status-warning {
     color: #f39c12;
     font-weight: 700;
   }
 
+  /*noinspection CssUnusedSymbol*/
   .status-critical {
     animation: blink 1s infinite;
     color: #e74c3c;

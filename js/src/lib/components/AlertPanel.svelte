@@ -26,7 +26,7 @@
     {#if alerts.length === 0}
       <p class="no-alerts">No hay alertas registradas</p>
     {:else}
-      {#each alerts as alert (alert.timestamp + alert.type)}
+      {#each alerts as alert (`${alert.timestamp}-${alert.type}`)}
         <div class="alert-log-entry alert-{alert.severity}">
           <div class="log-timestamp">{formatTimestamp(alert.timestamp)}</div>
           <div class="log-message">{alert.message}</div>
@@ -62,11 +62,13 @@
     padding: 10px;
   }
 
+  /*noinspection CssUnusedSymbol*/
   .alert-log-entry.alert-warning {
     background: #fff3cd;
     border-left-color: #f39c12;
   }
 
+  /*noinspection CssUnusedSymbol*/
   .alert-log-entry.alert-critical {
     background: #f8d7da;
     border-left-color: #e74c3c;

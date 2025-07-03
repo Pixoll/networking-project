@@ -48,7 +48,7 @@
             <td class="no-data" colspan="6">No hay datos disponibles</td>
           </tr>
         {:else}
-          {#each data as item (item.id)}
+          {#each data as item (`${item.id}-${item.timestamp}`)}
             {@const tempStatus = getValueStatus(item.temperature, alertRanges.temperature)}
             {@const pressureStatus = getValueStatus(item.pressure, alertRanges.pressure)}
             {@const humidityStatus = getValueStatus(item.humidity, alertRanges.humidity)}
@@ -162,15 +162,18 @@
     padding: 2px 6px;
   }
 
+  /*noinspection CssUnusedSymbol*/
   .status-normal {
     color: #27ae60;
   }
 
+  /*noinspection CssUnusedSymbol*/
   .status-warning {
     color: #f39c12;
     font-weight: 700;
   }
 
+  /*noinspection CssUnusedSymbol*/
   .status-critical {
     animation: blink 1s infinite;
     color: #e74c3c;
