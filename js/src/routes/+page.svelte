@@ -18,7 +18,7 @@
   let lastDataTimestamp = $state(0);
   let autoRefreshInterval = $state<number | null>(null);
 
-  const latestData = $derived(data[0]);
+  const latestData = $derived<Measurement | undefined>(data[0]);
   const alertCount = $derived(activeAlerts.size);
   const currentTime = $derived(latestData ? formatTimestamp(latestData.timestamp) : "--");
 
