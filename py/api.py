@@ -248,6 +248,15 @@ def timestamp_to_iso(timestamp):
         return "Invalid timestamp"
 
 
+# @app.route('/api/ping', methods=['GET'])
+# def health_check():
+#     return jsonify(
+#         {
+#             "status": "ok",
+#         },
+#     ), 200
+
+
 @app.route("/api/sensors/data", methods=["POST"])
 def create_sensor_data():
     global next_id
