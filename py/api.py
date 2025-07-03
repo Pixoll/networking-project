@@ -1,4 +1,5 @@
-import time
+import sqlite3
+from time import time
 
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
@@ -6,8 +7,31 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-sensor_data = []
-next_id = 1
+connection = sqlite3.connect("sensor.db", check_same_thread=False)
+cursor = connection.cursor()
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS measurement (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        sensor_id   SMALLINT NOT NULL,
+        temperature FLOAT    NOT NULL,
+        pressure    FLOAT    NOT NULL,
+        humidity    FLOAT    NOT NULL,
+        timestamp   DATETIME NOT NULL
+    );
+    """,
+)
+
+
+def row_to_dict(row: tuple) -> dict:
+    return {
+        "id": row[0],
+        "sensor_id": row[1],
+        "temperature": row[2],
+        "pressure": row[3],
+        "humidity": row[4],
+        "timestamp": row[5],
+    }
 
 
 @app.route("/api/ping", methods=["GET"])
@@ -17,8 +41,6 @@ def health_check() -> tuple[str, int]:
 
 @app.route("/api/measurements", methods=["POST"])
 def create_sensor_data() -> tuple[Response | str, int]:
-    global next_id
-
     try:
         if not request.is_json:
             return jsonify(
@@ -64,21 +86,19 @@ def create_sensor_data() -> tuple[Response | str, int]:
                 },
             ), 400
 
-        new_record = {
-            "id": next_id,
-            "sensor_id": sensor_id,
-            "temperature": temperature,
-            "pressure": pressure,
-            "humidity": humidity,
-            "timestamp": timestamp,
-        }
-
-        sensor_data.append(new_record)
-        next_id += 1
+        cursor.execute(
+            """
+            INSERT INTO measurement (sensor_id, temperature, pressure, humidity, timestamp)
+            VALUES (?, ?, ?, ?, ?);
+            """,
+            (sensor_id, temperature, pressure, humidity, timestamp),
+        )
+        connection.commit()
 
         return "", 201
 
-    except Exception:
+    except Exception as e:
+        print(e)
         return jsonify(
             {
                 "error": "Error interno del servidor",
@@ -89,24 +109,27 @@ def create_sensor_data() -> tuple[Response | str, int]:
 @app.route("/api/measurements", methods=["GET"])
 def get_sensor_data() -> tuple[Response, int]:
     try:
-        start_timestamp = request.args.get("start_timestamp", type=int)
-        end_timestamp = request.args.get("end_timestamp", type=int)
-        limit = request.args.get("limit", type=int)
+        start_timestamp = request.args.get("start_timestamp", type=int, default=0)
+        end_timestamp = request.args.get("end_timestamp", type=int, default=time() * 1000)
+        limit = request.args.get("limit", type=int, default=-1)
 
-        filtered_data = sensor_data.copy()
-        if start_timestamp:
-            filtered_data = [d for d in filtered_data if d["timestamp"] >= start_timestamp]
+        result = cursor.execute(
+            """
+            SELECT id, sensor_id, temperature, pressure, humidity, timestamp
+            FROM measurement
+            WHERE timestamp BETWEEN ? AND ?
+            ORDER BY timestamp DESC
+            LIMIT ?;
+            """,
+            (start_timestamp, end_timestamp, limit),
+        )
+        data = result.fetchall()
+        measurements = [row_to_dict(row) for row in data]
 
-        if end_timestamp:
-            filtered_data = [d for d in filtered_data if d["timestamp"] <= end_timestamp]
-        filtered_data.sort(key=lambda x: x["timestamp"], reverse=True)
+        return jsonify(measurements), 200
 
-        if limit and limit > 0:
-            filtered_data = filtered_data[:limit]
-
-        return jsonify(filtered_data), 200
-
-    except Exception:
+    except Exception as e:
+        print(e)
         return jsonify(
             {
                 "error": "Error interno del servidor",
@@ -117,18 +140,28 @@ def get_sensor_data() -> tuple[Response, int]:
 @app.route("/api/sensors/<int:sensor_id>", methods=["GET"])
 def get_sensor_data_by_id(sensor_id: int) -> tuple[Response, int]:
     try:
-        records = [d for d in sensor_data if d["sensor_id"] == sensor_id]
+        start_timestamp = request.args.get("start_timestamp", type=int, default=0)
+        end_timestamp = request.args.get("end_timestamp", type=int, default=time() * 1000)
+        limit = request.args.get("limit", type=int, default=-1)
 
-        if len(records) == 0:
-            return jsonify(
-                {
-                    "error": f"No se encontró ningún registro con sensor_id {sensor_id}",
-                },
-            ), 404
+        result = cursor.execute(
+            """
+            SELECT id, sensor_id, temperature, pressure, humidity, timestamp
+            FROM measurement
+            WHERE (timestamp BETWEEN ? AND ?)
+              AND (sensor_id = ?)
+            ORDER BY timestamp DESC
+            LIMIT ?;
+            """,
+            (start_timestamp, end_timestamp, sensor_id, limit),
+        )
+        data = result.fetchall()
+        measurements = [row_to_dict(row) for row in data]
 
-        return jsonify(records), 200
+        return jsonify(measurements), 200
 
-    except Exception:
+    except Exception as e:
+        print(e)
         return jsonify(
             {
                 "error": "Error interno del servidor",
