@@ -34,8 +34,8 @@ else ()
     set(PLATFORM_LIBS)
 endif ()
 
-add_executable(node cpp/node.cpp)
+add_executable(node src/node.cpp)
 target_link_libraries(node ${OPEN62541_LIB} ${PLATFORM_LIBS})
 
-add_executable(sensor cpp/sensor.cpp)
+add_executable(sensor src/sensor.cpp)
 target_link_libraries(sensor ${OPEN62541_LIB} OpenSSL::SSL OpenSSL::Crypto ${PLATFORM_LIBS})

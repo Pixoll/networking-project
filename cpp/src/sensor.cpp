@@ -1,4 +1,4 @@
-// sensor.cpp - sends serialized and signed data (CORRECTED)
+// sends serialized and signed data
 
 #include <chrono>
 #include <csignal>
@@ -133,7 +133,7 @@ int main(const int argc, const char *argv[]) {
         return 1;
     }
 
-    if (!load_private_key("../../.keys/sensor_private.pem")) {
+    if (!load_private_key("../../../.keys/sensor_private.pem")) {
         return EXIT_FAILURE;
     }
 
