@@ -11,8 +11,13 @@ import org.eclipse.milo.opcua.stack.core.types.enumerated.TimestampsToReturn;
 import org.eclipse.milo.opcua.stack.core.types.structured.MonitoredItemCreateRequest;
 import org.eclipse.milo.opcua.stack.core.types.structured.MonitoringParameters;
 import org.eclipse.milo.opcua.stack.core.types.structured.ReadValueId;
+import org.json.JSONObject;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
@@ -30,6 +35,7 @@ import java.util.concurrent.ExecutionException;
 
 public class Main {
     private static final String NODE_URL = "opc.tcp://localhost:4840";
+    private static final String ENDPOINT_URL = "http://localhost:5000/api/measurements";
     private static final String PUBLIC_KEY_PATH = "../.keys/sensor_public.pem";
     private static final String NODE_ID = "ns=1;s=sensor";
 
@@ -40,6 +46,15 @@ public class Main {
         float humidity,
         long timestamp
     ) {
+        String toJSON() {
+            return new JSONObject()
+                .put("sensor_id", this.sensorId)
+                .put("temperature", this.temperature)
+                .put("pressure", this.pressure)
+                .put("humidity", this.humidity)
+                .put("timestamp", this.timestamp)
+                .toString();
+        }
     }
 
     public record SignedDataResult(
@@ -184,8 +199,33 @@ public class Main {
             System.out.println("    humidity         = " + sensorData.humidity);
             System.out.println("    timestamp        = " + timestampString);
             System.out.println("    signature_length = " + result.signature.length);
+
+            sendDataToApi(sensorData);
         } catch (final Exception e) {
             System.err.println("Error processing data: " + e.getMessage());
+        }
+    }
+
+    public static void sendDataToApi(final SensorData sensorData) {
+        System.out.println("Sending data to API");
+
+        try (final HttpClient client = HttpClient.newHttpClient()) {
+            final HttpRequest request = HttpRequest
+                .newBuilder()
+                .uri(URI.create(ENDPOINT_URL))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(sensorData.toJSON()))
+                .build();
+
+            client
+                .sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenAccept(response -> {
+                    if (response.statusCode() == 201) {
+                        System.out.println("Successfully sent data to API");
+                    } else {
+                        System.err.println("Could not send data to API: " + response.body());
+                    }
+                });
         }
     }
 

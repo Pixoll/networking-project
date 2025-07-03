@@ -15,7 +15,8 @@ repositories {
 }
 
 dependencies {
+    implementation(libs.json)
+    implementation(libs.logback.classic)
     implementation(libs.milo.sdk.client)
     implementation(libs.slf4j.api)
-    implementation(libs.logback.classic)
 }
