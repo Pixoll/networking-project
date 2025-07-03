@@ -1,7 +1,6 @@
 import time
-from datetime import datetime
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -11,254 +10,243 @@ sensor_data = [
     {
         "id": 1,
         "temperature": 25.5,
-        "pression": 1013.25,
+        "pressure": 1013.25,
         "humidity": 65.2,
-        "timestamp": 1720328207,
+        "timestamp": 1720328207000,
     },
     {
         "id": 2,
         "temperature": 22.3,
-        "pression": 1015.80,
+        "pressure": 1015.80,
         "humidity": 58.7,
-        "timestamp": 1720327907,
+        "timestamp": 1720327907000,
     },
     {
         "id": 3,
         "temperature": 26.1,
-        "pression": 1012.90,
+        "pressure": 1012.90,
         "humidity": 67.5,
-        "timestamp": 1720327607,
+        "timestamp": 1720327607000,
     },
     {
         "id": 4,
         "temperature": 24.2,
-        "pression": 1014.8,
+        "pressure": 1014.8,
         "humidity": 68.5,
-        "timestamp": 1718439015,  # 15 jun 08:30:15
+        "timestamp": 1718439015000,  # 15 jun 08:30:15
     },
     {
         "id": 5,
         "temperature": 29.1,
-        "pression": 1011.3,
+        "pressure": 1011.3,
         "humidity": 55.2,
-        "timestamp": 1718461522,  # 15 jun 14:45:22
+        "timestamp": 1718461522000,  # 15 jun 14:45:22
     },
     {
         "id": 6,
         "temperature": 26.3,
-        "pression": 1013.4,
+        "pressure": 1013.4,
         "humidity": 64.2,
-        "timestamp": 1718705733,  # 18 jun 10:15:33
+        "timestamp": 1718705733000,  # 18 jun 10:15:33
     },
     {
         "id": 7,
         "temperature": 31.8,
-        "pression": 1009.1,
+        "pressure": 1009.1,
         "humidity": 47.5,
-        "timestamp": 1718729845,  # 18 jun 16:57:25
+        "timestamp": 1718729845000,  # 18 jun 16:57:25
     },
     {
         "id": 8,
         "temperature": 21.8,
-        "pression": 1016.7,
+        "pressure": 1016.7,
         "humidity": 74.3,
-        "timestamp": 1718863330,  # 20 jun 06:15:30
+        "timestamp": 1718863330000,  # 20 jun 06:15:30
     },
     {
         "id": 9,
         "temperature": 34.5,
-        "pression": 1006.8,
+        "pressure": 1006.8,
         "humidity": 39.7,
-        "timestamp": 1718885218,  # 20 jun 12:20:18
+        "timestamp": 1718885218000,  # 20 jun 12:20:18
     },
     {
         "id": 10,
         "temperature": 28.9,
-        "pression": 1010.4,
+        "pressure": 1010.4,
         "humidity": 58.1,
-        "timestamp": 1718908512,  # 20 jun 18:45:12
+        "timestamp": 1718908512000,  # 20 jun 18:45:12
     },
     {
         "id": 11,
         "temperature": 37.2,
-        "pression": 1004.5,
+        "pressure": 1004.5,
         "humidity": 32.1,
-        "timestamp": 1719058818,  # 22 jun 14:40:18
+        "timestamp": 1719058818000,  # 22 jun 14:40:18
     },
     {
         "id": 12,
         "temperature": 30.4,
-        "pression": 1008.2,
+        "pressure": 1008.2,
         "humidity": 44.9,
-        "timestamp": 1719082935,  # 22 jun 21:22:15
+        "timestamp": 1719082935000,  # 22 jun 21:22:15
     },
     {
         "id": 13,
         "temperature": 24.7,
-        "pression": 1014.9,
+        "pressure": 1014.9,
         "humidity": 69.3,
-        "timestamp": 1719221145,  # 24 jun 08:25:45
+        "timestamp": 1719221145000,  # 24 jun 08:25:45
     },
     {
         "id": 14,
         "temperature": 32.6,
-        "pression": 1007.6,
+        "pressure": 1007.6,
         "humidity": 43.2,
-        "timestamp": 1719243422,  # 24 jun 14:37:02
+        "timestamp": 1719243422000,  # 24 jun 14:37:02
     },
     {
         "id": 15,
         "temperature": 25.6,
-        "pression": 1013.5,
+        "pressure": 1013.5,
         "humidity": 66.7,
-        "timestamp": 1719308445,  # 25 jun 09:30:45
+        "timestamp": 1719308445000,  # 25 jun 09:30:45
     },
     {
         "id": 16,
         "temperature": 33.2,
-        "pression": 1007.2,
+        "pressure": 1007.2,
         "humidity": 42.9,
-        "timestamp": 1719329233,  # 25 jun 15:20:33
+        "timestamp": 1719329233000,  # 25 jun 15:20:33
     },
     {
         "id": 17,
         "temperature": 23.1,
-        "pression": 1015.8,
+        "pressure": 1015.8,
         "humidity": 71.6,
-        "timestamp": 1719481230,  # 27 jun 07:13:50
+        "timestamp": 1719481230000,  # 27 jun 07:13:50
     },
     {
         "id": 18,
         "temperature": 35.8,
-        "pression": 1005.3,
+        "pressure": 1005.3,
         "humidity": 36.4,
-        "timestamp": 1719508522,  # 27 jun 14:48:42
+        "timestamp": 1719508522000,  # 27 jun 14:48:42
     },
     {
         "id": 19,
         "temperature": 27.9,
-        "pression": 1011.7,
+        "pressure": 1011.7,
         "humidity": 59.8,
-        "timestamp": 1719574845,  # 28 jun 09:14:05
+        "timestamp": 1719574845000,  # 28 jun 09:14:05
     },
     {
         "id": 20,
         "temperature": 19.2,
-        "pression": 1018.4,
+        "pressure": 1018.4,
         "humidity": 83.7,
-        "timestamp": 1719606330,  # 28 jun 18:58:50
+        "timestamp": 1719606330000,  # 28 jun 18:58:50
     },
     {
         "id": 21,
         "temperature": 29.4,
-        "pression": 1011.6,
+        "pressure": 1011.6,
         "humidity": 56.8,
-        "timestamp": 1719665415,  # 29 jun 11:50:15
+        "timestamp": 1719665415000,  # 29 jun 11:50:15
     },
     {
         "id": 22,
         "temperature": 26.8,
-        "pression": 1013.1,
+        "pressure": 1013.1,
         "humidity": 62.5,
-        "timestamp": 1719691822,  # 29 jun 19:10:22
+        "timestamp": 1719691822000,  # 29 jun 19:10:22
     },
     {
         "id": 23,
         "temperature": 23.4,
-        "pression": 1015.2,
+        "pressure": 1015.2,
         "humidity": 71.8,
-        "timestamp": 1719736522,  # 30 jun 07:42:02
+        "timestamp": 1719736522000,  # 30 jun 07:42:02
     },
     {
         "id": 24,
         "temperature": 30.7,
-        "pression": 1009.6,
+        "pressure": 1009.6,
         "humidity": 51.3,
-        "timestamp": 1719757215,  # 30 jun 13:33:35
+        "timestamp": 1719757215000,  # 30 jun 13:33:35
     },
     {
         "id": 25,
         "temperature": 24.1,
-        "pression": 1014.3,
+        "pressure": 1014.3,
         "humidity": 73.6,
-        "timestamp": 1719794730,  # 30 jun 23:58:50
+        "timestamp": 1719794730000,  # 30 jun 23:58:50
     },
     {
         "id": 26,
         "temperature": 18.9,
-        "pression": 1018.1,
+        "pressure": 1018.1,
         "humidity": 85.2,
-        "timestamp": 1719808245,  # 01 jul 03:44:05
+        "timestamp": 1719808245000,  # 01 jul 03:44:05
     },
     {
         "id": 27,
         "temperature": 25.8,
-        "pression": 1013.7,
+        "pressure": 1013.7,
         "humidity": 65.9,
-        "timestamp": 1719829522,  # 01 jul 09:38:42
+        "timestamp": 1719829522000,  # 01 jul 09:38:42
     },
     {
         "id": 28,
         "temperature": 32.1,
-        "pression": 1008.3,
+        "pressure": 1008.3,
         "humidity": 46.8,
-        "timestamp": 1719855045,  # 01 jul 16:44:05
+        "timestamp": 1719855045000,  # 01 jul 16:44:05
     },
     {
         "id": 29,
         "temperature": 26.9,
-        "pression": 1013.9,
+        "pressure": 1013.9,
         "humidity": 67.5,
-        "timestamp": 1719872122,  # 01 jul 21:28:42
+        "timestamp": 1719872122000,  # 01 jul 21:28:42
     },
     {
         "id": 30,
         "temperature": 22.3,
-        "pression": 1015.6,
+        "pressure": 1015.6,
         "humidity": 75.9,
-        "timestamp": 1719887415,  # 02 jul 01:43:35
+        "timestamp": 1719887415000,  # 02 jul 01:43:35
     },
     {
         "id": 31,
         "temperature": 21.1,
-        "pression": 1016.2,
+        "pressure": 1016.2,
         "humidity": 78.4,
-        "timestamp": 1719891930,  # 02 jul 02:58:50
+        "timestamp": 1719891930000,  # 02 jul 02:58:50
     },
     {
         "id": 32,
         "temperature": 20.7,
-        "pression": 1016.8,
+        "pressure": 1016.8,
         "humidity": 80.1,
-        "timestamp": 1719894045,  # 02 jul 03:34:05
+        "timestamp": 1719894045000,  # 02 jul 03:34:05
     },
 ]
 
 next_id = 33
 
 
-def get_current_timestamp():
-    return int(time.time())
-
-
-def timestamp_to_iso(timestamp):
-    try:
-        return datetime.fromtimestamp(timestamp).isoformat() + "Z"
-    except:
-        return "Invalid timestamp"
-
-
-# @app.route('/api/ping', methods=['GET'])
-# def health_check():
-#     return jsonify(
-#         {
-#             "status": "ok",
-#         },
-#     ), 200
+@app.route('/api/ping', methods=['GET'])
+def health_check() -> tuple[Response, int]:
+    return jsonify(
+        {
+            "status": "ok",
+        },
+    ), 200
 
 
 @app.route("/api/sensors/data", methods=["POST"])
-def create_sensor_data():
+def create_sensor_data() -> tuple[Response, int]:
     global next_id
 
     try:
@@ -270,7 +258,7 @@ def create_sensor_data():
             ), 400
 
         data = request.get_json()
-        required_fields = ["temperature", "pression", "humidity"]
+        required_fields = ["temperature", "pressure", "humidity"]
         for field in required_fields:
             if field not in data:
                 return jsonify(
@@ -281,7 +269,7 @@ def create_sensor_data():
 
         try:
             temperature = float(data["temperature"])
-            pression = float(data["pression"])
+            pressure = float(data["pressure"])
             humidity = float(data["humidity"])
         except (ValueError, TypeError):
             return jsonify(
@@ -297,7 +285,7 @@ def create_sensor_data():
                 },
             ), 400
 
-        if pression < 800 or pression > 1200:
+        if pressure < 800 or pressure > 1200:
             return jsonify(
                 {
                     "error": "La presión debe estar entre 800 y 1200 hPa",
@@ -315,12 +303,12 @@ def create_sensor_data():
                     },
                 ), 400
         else:
-            timestamp = get_current_timestamp()
+            timestamp = int(time.time() * 1000)
 
         new_record = {
             "id": next_id,
             "temperature": temperature,
-            "pression": pression,
+            "pressure": pressure,
             "humidity": humidity,
             "timestamp": timestamp,
         }
@@ -335,7 +323,7 @@ def create_sensor_data():
             },
         ), 201
 
-    except Exception as e:
+    except Exception:
         return jsonify(
             {
                 "error": "Error interno del servidor",
@@ -344,7 +332,7 @@ def create_sensor_data():
 
 
 @app.route("/api/sensors/data", methods=["GET"])
-def get_sensor_data():
+def get_sensor_data() -> tuple[Response, int]:
     try:
         start_timestamp = request.args.get("start_timestamp", type=int)
         end_timestamp = request.args.get("end_timestamp", type=int)
@@ -368,7 +356,7 @@ def get_sensor_data():
             },
         ), 200
 
-    except Exception as e:
+    except Exception:
         return jsonify(
             {
                 "error": "Error interno del servidor",
@@ -377,7 +365,7 @@ def get_sensor_data():
 
 
 @app.route("/api/sensors/data/<int:data_id>", methods=["GET"])
-def get_sensor_data_by_id(data_id):
+def get_sensor_data_by_id(data_id: int) -> tuple[Response, int]:
     try:
         record = next((d for d in sensor_data if d["id"] == data_id), None)
 
@@ -394,7 +382,7 @@ def get_sensor_data_by_id(data_id):
             },
         ), 200
 
-    except Exception as e:
+    except Exception:
         return jsonify(
             {
                 "error": "Error interno del servidor",
@@ -403,7 +391,7 @@ def get_sensor_data_by_id(data_id):
 
 
 @app.errorhandler(404)
-def not_found(error):
+def not_found(_) -> tuple[Response, int]:
     return jsonify(
         {
             "error": "Endpoint no encontrado",
@@ -412,7 +400,7 @@ def not_found(error):
 
 
 @app.errorhandler(405)
-def method_not_allowed(error):
+def method_not_allowed(_) -> tuple[Response, int]:
     return jsonify(
         {
             "error": "Método HTTP no permitido",

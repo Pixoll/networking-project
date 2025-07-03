@@ -21,49 +21,41 @@
   type Datapoint = {
     id: number;
     temperature: number;
-    pression: number;
+    pressure: number;
     humidity: number;
     timestamp: number;
   };
 
+  type AlertType = "temperature" | "pressure" | "humidity";
+
+  const API_BASE_URL = "http://localhost:5000";
+
+  const alertRanges: Record<AlertType, AlertRange> = {
+    temperature: { min: 10, max: 40 },
+    pressure: { min: 990, max: 1040 },
+    humidity: { min: 20, max: 90 }
+  };
+
   class IoTDashboard {
-    private temperatureChart: ApexCharts | null;
-    private pressureChart: ApexCharts | null;
-    private humidityChart: ApexCharts | null;
+    private temperatureChart: ApexCharts;
+    private pressureChart: ApexCharts;
+    private humidityChart: ApexCharts;
     private autoRefreshInterval: number | null;
     private isAutoRefreshEnabled: boolean;
     private currentLimit: number;
-    private API_BASE_URL: string;
     private lastDataTimestamp: number;
     private refreshIntervalMs: number;
-    private alertRanges: Record<string, AlertRange>;
     private activeAlerts: Set<string>;
 
     constructor() {
-      this.temperatureChart = null;
-      this.pressureChart = null;
-      this.humidityChart = null;
       this.autoRefreshInterval = null;
       this.isAutoRefreshEnabled = false;
       this.currentLimit = 20;
-      this.API_BASE_URL = "http://localhost:5000";
       this.lastDataTimestamp = 0;
       this.refreshIntervalMs = 2000;
 
-      this.alertRanges = {
-        temperature: { min: 10, max: 40 },
-        pressure: { min: 990, max: 1040 },
-        humidity: { min: 20, max: 90 }
-      };
-
       this.activeAlerts = new Set();
 
-      this.initializeCharts();
-      this.setupEventListeners();
-      this.loadInitialData();
-    }
-
-    initializeCharts(): void {
       const commonOptions = {
         chart: {
           type: "line",
@@ -131,22 +123,22 @@
         annotations: {
           yaxis: [
             {
-              y: this.alertRanges.temperature.max,
+              y: alertRanges.temperature.max,
               borderColor: "#e74c3c",
               borderWidth: 2,
               strokeDashArray: 5,
               label: {
-                text: `Máx: ${this.alertRanges.temperature.max}°C`,
+                text: `Máx: ${alertRanges.temperature.max}°C`,
                 style: { color: "#e74c3c", background: "#ffffff" }
               }
             },
             {
-              y: this.alertRanges.temperature.min,
+              y: alertRanges.temperature.min,
               borderColor: "#3498db",
               borderWidth: 2,
               strokeDashArray: 5,
               label: {
-                text: `Mín: ${this.alertRanges.temperature.min}°C`,
+                text: `Mín: ${alertRanges.temperature.min}°C`,
                 style: { color: "#3498db", background: "#ffffff" }
               }
             }
@@ -172,22 +164,22 @@
         annotations: {
           yaxis: [
             {
-              y: this.alertRanges.pressure.max,
+              y: alertRanges.pressure.max,
               borderColor: "#e74c3c",
               borderWidth: 2,
               strokeDashArray: 5,
               label: {
-                text: `Máx: ${this.alertRanges.pressure.max} hPa`,
+                text: `Máx: ${alertRanges.pressure.max} hPa`,
                 style: { color: "#e74c3c", background: "#ffffff" }
               }
             },
             {
-              y: this.alertRanges.pressure.min,
+              y: alertRanges.pressure.min,
               borderColor: "#3498db",
               borderWidth: 2,
               strokeDashArray: 5,
               label: {
-                text: `Mín: ${this.alertRanges.pressure.min} hPa`,
+                text: `Mín: ${alertRanges.pressure.min} hPa`,
                 style: { color: "#3498db", background: "#ffffff" }
               }
             }
@@ -215,22 +207,22 @@
         annotations: {
           yaxis: [
             {
-              y: this.alertRanges.humidity.max,
+              y: alertRanges.humidity.max,
               borderColor: "#e74c3c",
               borderWidth: 2,
               strokeDashArray: 5,
               label: {
-                text: `Máx: ${this.alertRanges.humidity.max}%`,
+                text: `Máx: ${alertRanges.humidity.max}%`,
                 style: { color: "#e74c3c", background: "#ffffff" }
               }
             },
             {
-              y: this.alertRanges.humidity.min,
+              y: alertRanges.humidity.min,
               borderColor: "#3498db",
               borderWidth: 2,
               strokeDashArray: 5,
               label: {
-                text: `Mín: ${this.alertRanges.humidity.min}%`,
+                text: `Mín: ${alertRanges.humidity.min}%`,
                 style: { color: "#3498db", background: "#ffffff" }
               }
             }
@@ -255,9 +247,7 @@
         humidityOptions
       );
       this.humidityChart.render();
-    }
 
-    setupEventListeners(): void {
       document.getElementById("refreshBtn")?.addEventListener("click", () => {
         this.loadData();
       });
@@ -282,16 +272,13 @@
           this.toggleAutoRefresh();
         }
       });
+
+      this.loadData();
     }
 
-    async loadInitialData(): Promise<void> {
-      await this.checkApiStatus();
-      await this.loadData();
-    }
-
-    async checkApiStatus(): Promise<void> {
+    async checkApiStatus(): Promise<boolean> {
       try {
-        const response = await fetch(`${this.API_BASE_URL}/api/ping`);
+        const response = await fetch(`${API_BASE_URL}/api/ping`);
         const statusElement = document.getElementById("connectionStatus");
 
         if (response.ok) {
@@ -301,26 +288,32 @@
           // noinspection ExceptionCaughtLocallyJS
           throw new Error("API not responding");
         }
+
+        return true;
       } catch (error) {
         console.error(error);
         const statusElement = document.getElementById("connectionStatus");
         statusElement?.classList.remove("online");
         statusElement?.classList.add("offline");
+        return false;
       }
     }
 
     async loadData(): Promise<void> {
-      try {
-        await this.checkApiStatus();
+      const isOnline = await this.checkApiStatus();
+      if (!isOnline) {
+        return;
+      }
 
-        const response = await fetch(`${this.API_BASE_URL}/api/sensors/data?limit=${this.currentLimit}`);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/sensors/data?limit=${this.currentLimit}`);
 
         if (!response.ok) {
           // noinspection ExceptionCaughtLocallyJS
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const apiResponse = await response.json();
+        const apiResponse = await response.json() as { data: Datapoint[] };
 
         const latestTimestamp = apiResponse.data[0]?.timestamp || 0;
         const hasNewData = latestTimestamp > this.lastDataTimestamp;
@@ -343,14 +336,16 @@
     }
 
     showNewDataNotification(newData: Datapoint): void {
-      if (!newData) return;
+      if (!newData) {
+        return;
+      }
 
       const notification = document.createElement("div");
       notification.className = "new-data-notification";
       notification.innerHTML = `
         <div class="notification-content">
           <strong>📡 Nuevo dato recibido</strong>
-          <p>🌡️ ${newData.temperature.toFixed(1)}°C | 🔧 ${newData.pression.toFixed(1)} hPa | 💧 ${newData.humidity.toFixed(1)}%</p>
+          <p>🌡️ ${newData.temperature.toFixed(1)}°C | 🔧 ${newData.pressure.toFixed(1)} hPa | 💧 ${newData.humidity.toFixed(1)}%</p>
           <small>${this.formatTimestamp(newData.timestamp)}</small>
         </div>
       `;
@@ -395,63 +390,63 @@
     }
 
     checkAlerts(latestData: Datapoint): void {
-      const { temperature, pression, humidity, timestamp } = latestData;
+      const { temperature, pressure, humidity, timestamp } = latestData;
       const alerts: Alert[] = [];
 
-      if (temperature < this.alertRanges.temperature.min) {
+      if (temperature < alertRanges.temperature.min) {
         alerts.push({
           type: "temperature",
           severity: "warning",
-          message: `🥶 Temperatura muy baja: ${temperature.toFixed(1)}°C (Mín: ${this.alertRanges.temperature.min}°C)`,
+          message: `🥶 Temperatura muy baja: ${temperature.toFixed(1)}°C (Mín: ${alertRanges.temperature.min}°C)`,
           value: temperature,
-          threshold: this.alertRanges.temperature.min,
+          threshold: alertRanges.temperature.min,
           timestamp
         });
-      } else if (temperature > this.alertRanges.temperature.max) {
+      } else if (temperature > alertRanges.temperature.max) {
         alerts.push({
           type: "temperature",
           severity: "critical",
-          message: `🔥 Temperatura muy alta: ${temperature.toFixed(1)}°C (Máx: ${this.alertRanges.temperature.max}°C)`,
+          message: `🔥 Temperatura muy alta: ${temperature.toFixed(1)}°C (Máx: ${alertRanges.temperature.max}°C)`,
           value: temperature,
-          threshold: this.alertRanges.temperature.max,
+          threshold: alertRanges.temperature.max,
           timestamp
         });
       }
-      if (pression < this.alertRanges.pressure.min) {
+      if (pressure < alertRanges.pressure.min) {
         alerts.push({
           type: "pressure",
           severity: "warning",
-          message: `📉 Presión muy baja: ${pression.toFixed(1)} hPa (Mín: ${this.alertRanges.pressure.min} hPa)`,
-          value: pression,
-          threshold: this.alertRanges.pressure.min,
+          message: `📉 Presión muy baja: ${pressure.toFixed(1)} hPa (Mín: ${alertRanges.pressure.min} hPa)`,
+          value: pressure,
+          threshold: alertRanges.pressure.min,
           timestamp
         });
-      } else if (pression > this.alertRanges.pressure.max) {
+      } else if (pressure > alertRanges.pressure.max) {
         alerts.push({
           type: "pressure",
           severity: "critical",
-          message: `📈 Presión muy alta: ${pression.toFixed(1)} hPa (Máx: ${this.alertRanges.pressure.max} hPa)`,
-          value: pression,
-          threshold: this.alertRanges.pressure.max,
+          message: `📈 Presión muy alta: ${pressure.toFixed(1)} hPa (Máx: ${alertRanges.pressure.max} hPa)`,
+          value: pressure,
+          threshold: alertRanges.pressure.max,
           timestamp
         });
       }
-      if (humidity < this.alertRanges.humidity.min) {
+      if (humidity < alertRanges.humidity.min) {
         alerts.push({
           type: "humidity",
           severity: "warning",
-          message: `🏜️ Humedad muy baja: ${humidity.toFixed(1)}% (Mín: ${this.alertRanges.humidity.min}%)`,
+          message: `🏜️ Humedad muy baja: ${humidity.toFixed(1)}% (Mín: ${alertRanges.humidity.min}%)`,
           value: humidity,
-          threshold: this.alertRanges.humidity.min,
+          threshold: alertRanges.humidity.min,
           timestamp
         });
-      } else if (humidity > this.alertRanges.humidity.max) {
+      } else if (humidity > alertRanges.humidity.max) {
         alerts.push({
           type: "humidity",
           severity: "warning",
-          message: `💧 Humedad muy alta: ${humidity.toFixed(1)}% (Máx: ${this.alertRanges.humidity.max}%)`,
+          message: `💧 Humedad muy alta: ${humidity.toFixed(1)}% (Máx: ${alertRanges.humidity.max}%)`,
           value: humidity,
-          threshold: this.alertRanges.humidity.max,
+          threshold: alertRanges.humidity.max,
           timestamp
         });
       }
@@ -608,31 +603,31 @@
       const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp);
 
       const temperatureData = sortedData.map(item => ({
-        x: item.timestamp * 1000,
+        x: item.timestamp,
         y: item.temperature
       }));
 
       const pressureData = sortedData.map(item => ({
-        x: item.timestamp * 1000,
-        y: item.pression
+        x: item.timestamp,
+        y: item.pressure
       }));
 
       const humidityData = sortedData.map(item => ({
-        x: item.timestamp * 1000,
+        x: item.timestamp,
         y: item.humidity
       }));
 
-      this.temperatureChart?.updateSeries([{
+      this.temperatureChart.updateSeries([{
         name: "Temperatura (°C)",
         data: temperatureData
       }]);
 
-      this.pressureChart?.updateSeries([{
+      this.pressureChart.updateSeries([{
         name: "Presión (hPa)",
         data: pressureData
       }]);
 
-      this.humidityChart?.updateSeries([{
+      this.humidityChart.updateSeries([{
         name: "Humedad (%)",
         data: humidityData
       }]);
@@ -647,14 +642,14 @@
       const latest = data[0];
       const latestTime = this.formatTimestamp(latest.timestamp);
 
-      const tempStatus = this.getValueStatus(latest.temperature, this.alertRanges.temperature);
-      const pressureStatus = this.getValueStatus(latest.pression, this.alertRanges.pressure);
-      const humidityStatus = this.getValueStatus(latest.humidity, this.alertRanges.humidity);
+      const tempStatus = this.getValueStatus(latest.temperature, alertRanges.temperature);
+      const pressureStatus = this.getValueStatus(latest.pressure, alertRanges.pressure);
+      const humidityStatus = this.getValueStatus(latest.humidity, alertRanges.humidity);
 
       this.updateElementWithStatus("currentTemp", `${latest.temperature.toFixed(1)}°C`, tempStatus);
       this.updateElement("tempTime", latestTime);
 
-      this.updateElementWithStatus("currentPressure", `${latest.pression.toFixed(1)} hPa`, pressureStatus);
+      this.updateElementWithStatus("currentPressure", `${latest.pressure.toFixed(1)} hPa`, pressureStatus);
       this.updateElement("pressureTime", latestTime);
 
       this.updateElementWithStatus("currentHumidity", `${latest.humidity.toFixed(1)}%`, humidityStatus);
@@ -692,9 +687,9 @@
       }
 
       tbody.innerHTML = data.map(item => {
-        const tempStatus = this.getValueStatus(item.temperature, this.alertRanges.temperature);
-        const pressureStatus = this.getValueStatus(item.pression, this.alertRanges.pressure);
-        const humidityStatus = this.getValueStatus(item.humidity, this.alertRanges.humidity);
+        const tempStatus = this.getValueStatus(item.temperature, alertRanges.temperature);
+        const pressureStatus = this.getValueStatus(item.pressure, alertRanges.pressure);
+        const humidityStatus = this.getValueStatus(item.humidity, alertRanges.humidity);
 
         const hasAlert = tempStatus !== "normal" || pressureStatus !== "normal" || humidityStatus !== "normal";
 
@@ -702,7 +697,7 @@
           <tr class="${hasAlert ? "row-alert" : ""}">
             <td>${item.id}</td>
             <td class="status-${tempStatus}">${item.temperature.toFixed(1)}°C ${tempStatus !== "normal" ? (tempStatus === "critical" ? "🚨" : "⚠️") : ""}</td>
-            <td class="status-${pressureStatus}">${item.pression.toFixed(1)} hPa ${pressureStatus !== "normal" ? (pressureStatus === "critical" ? "🚨" : "⚠️") : ""}</td>
+            <td class="status-${pressureStatus}">${item.pressure.toFixed(1)} hPa ${pressureStatus !== "normal" ? (pressureStatus === "critical" ? "🚨" : "⚠️") : ""}</td>
             <td class="status-${humidityStatus}">${item.humidity.toFixed(1)}% ${humidityStatus !== "normal" ? (humidityStatus === "critical" ? "🚨" : "⚠️") : ""}</td>
             <td>${this.formatTimestamp(item.timestamp)}</td>
             <td>${hasAlert ? "<span class=\"alert-badge\">ALERTA</span>" : "<span class=\"ok-badge\">OK</span>"}</td>
@@ -730,13 +725,14 @@
     }
 
     formatTimestamp(timestamp: number): string {
-      return new Date(timestamp * 1000).toLocaleString("es-ES", {
+      return new Date(timestamp).toLocaleString("en-GB", {
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
         hour: "2-digit",
         minute: "2-digit",
-        second: "2-digit"
+        second: "2-digit",
+        fractionalSecondDigits: 3,
       });
     }
 
@@ -955,20 +951,20 @@
     margin-top: 4px;
   }
 
-  /*.status-normal {*/
-  /*  color: #27ae60;*/
-  /*}*/
+  .status-normal {
+    color: #27ae60;
+  }
 
-  /*.status-warning {*/
-  /*  color: #f39c12;*/
-  /*  font-weight: 700;*/
-  /*}*/
+  .status-warning {
+    color: #f39c12;
+    font-weight: 700;
+  }
 
-  /*.status-critical {*/
-  /*  animation: blink 1s infinite;*/
-  /*  color: #e74c3c;*/
-  /*  font-weight: 700;*/
-  /*}*/
+  .status-critical {
+    animation: blink 1s infinite;
+    color: #e74c3c;
+    font-weight: 700;
+  }
 
   @keyframes blink {
     0%, 50% {
@@ -996,38 +992,38 @@
     padding: 15px;
   }
 
-  /*.alert-log-entry {*/
-  /*  border-left: 4px solid;*/
-  /*  border-radius: 6px;*/
-  /*  margin-bottom: 10px;*/
-  /*  padding: 10px;*/
-  /*}*/
+  .alert-log-entry {
+    border-left: 4px solid;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    padding: 10px;
+  }
 
-  /*.alert-log-entry.alert-warning {*/
-  /*  background: #fff3cd;*/
-  /*  border-left-color: #f39c12;*/
-  /*}*/
+  .alert-log-entry.alert-warning {
+    background: #fff3cd;
+    border-left-color: #f39c12;
+  }
 
-  /*.alert-log-entry.alert-critical {*/
-  /*  background: #f8d7da;*/
-  /*  border-left-color: #e74c3c;*/
-  /*}*/
+  .alert-log-entry.alert-critical {
+    background: #f8d7da;
+    border-left-color: #e74c3c;
+  }
 
-  /*.log-timestamp {*/
-  /*  color: #666666;*/
-  /*  font-size: 0.8rem;*/
-  /*  font-weight: 600;*/
-  /*}*/
+  .log-timestamp {
+    color: #666666;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
 
-  /*.log-message {*/
-  /*  font-weight: 600;*/
-  /*  margin: 5px 0;*/
-  /*}*/
+  .log-message {
+    font-weight: 600;
+    margin: 5px 0;
+  }
 
-  /*.log-value {*/
-  /*  color: #555555;*/
-  /*  font-size: 0.8rem;*/
-  /*}*/
+  .log-value {
+    color: #555555;
+    font-size: 0.8rem;
+  }
 
   .no-alerts {
     color: #666666;
@@ -1036,28 +1032,28 @@
     text-align: center;
   }
 
-  /*.row-alert {*/
-  /*  background-color: #fff5f5 !important;*/
-  /*  border-left: 4px solid #e74c3c;*/
-  /*}*/
+  .row-alert {
+    background-color: #fff5f5 !important;
+    border-left: 4px solid #e74c3c;
+  }
 
-  /*.alert-badge {*/
-  /*  background: #e74c3c;*/
-  /*  border-radius: 4px;*/
-  /*  color: white;*/
-  /*  font-size: 0.7rem;*/
-  /*  font-weight: 600;*/
-  /*  padding: 2px 6px;*/
-  /*}*/
+  .alert-badge {
+    background: #e74c3c;
+    border-radius: 4px;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 6px;
+  }
 
-  /*.ok-badge {*/
-  /*  background: #27ae60;*/
-  /*  border-radius: 4px;*/
-  /*  color: white;*/
-  /*  font-size: 0.7rem;*/
-  /*  font-weight: 600;*/
-  /*  padding: 2px 6px;*/
-  /*}*/
+  .ok-badge {
+    background: #27ae60;
+    border-radius: 4px;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 6px;
+  }
 
   .btn.warning {
     background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
@@ -1097,9 +1093,9 @@
     width: 12px;
   }
 
-  /*.status-dot.online {*/
-  /*  background: #27ae60;*/
-  /*}*/
+  .status-dot.online {
+    background: #27ae60;
+  }
 
   .status-dot.offline {
     background: #e74c3c;
