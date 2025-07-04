@@ -16,7 +16,7 @@
   let activeAlerts = $state<Set<string>>(new Set());
   let alertLog = $state<Alert[]>([]);
   let lastDataTimestamp = $state(0);
-  let autoRefreshInterval = $state<number | null>(null);
+  let autoRefreshInterval: number | null = null;
 
   const latestData = $derived<Measurement | undefined>(data[0]);
   const alertCount = $derived(activeAlerts.size);
