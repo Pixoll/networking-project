@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Measurement } from "$lib/types";
   import type { ApexOptions } from "apexcharts";
+  import { generateHexColors } from "$lib/utils/randomColors";
   import ApexCharts from "apexcharts";
   import { onMount } from "svelte";
 
@@ -17,6 +18,7 @@
 
   let chart: ApexCharts;
   let chartElement: HTMLElement;
+  let sensorColorMap = new Map<number, string>();
 
   onMount(() => {
     chart = new ApexCharts(chartElement, options);
@@ -35,17 +37,43 @@
     }
   });
 
+  function groupDataBySensor(measurements: Measurement[]): Map<number, { x: number; y: number }[]> {
+    const grouped = new Map<number, { x: number; y: number }[]>();
+
+    measurements.forEach(measurement => {
+      if (!grouped.has(measurement.sensor_id)) {
+        grouped.set(measurement.sensor_id, []);
+      }
+
+      grouped.get(measurement.sensor_id)!.push({
+        x: measurement.timestamp,
+        y: measurement[dataKey] as number
+      });
+    });
+
+    return grouped;
+  }
+
   function updateChart(newData: Measurement[]) {
     const sortedData = [...newData].sort((a, b) => a.timestamp - b.timestamp);
-    const chartData = sortedData.map(item => ({
-      x: item.timestamp,
-      y: item[dataKey]
+    const groupedData = groupDataBySensor(sortedData);
+    const sensorIds = Array.from(groupedData.keys()).sort();
+
+    const newSensors = sensorIds.filter(id => !sensorColorMap.has(id));
+    if (newSensors.length > 0) {
+      const newColors = generateHexColors(newSensors.length);
+      newSensors.forEach((sensorId, index) => {
+        sensorColorMap.set(sensorId, newColors[index]);
+      });
+    }
+
+    const series = sensorIds.map(sensorId => ({
+      name: `Sensor ${sensorId}`,
+      data: groupedData.get(sensorId)!.sort((a, b) => a.x - b.x),
+      color: sensorColorMap.get(sensorId)!
     }));
 
-    chart.updateSeries([{
-      name: title,
-      data: chartData
-    }]);
+    chart.updateSeries(series);
   }
 </script>
 
