@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { checkApiStatus, getSensorData } from "$lib/api";
+  import { getSensorData } from "$lib/api";
   import AlertPanel from "$lib/components/AlertPanel.svelte";
   import Chart from "$lib/components/Chart.svelte";
   import DataTable from "$lib/components/DataTable.svelte";
   import MetricCard from "$lib/components/MetricCard.svelte";
-  import { alertRanges, humidityOptions, pressureOptions, temperatureOptions } from "$lib/config";
+  import {alertRanges, humidityOptions, pressureOptions, SOCKET_URL, temperatureOptions} from "$lib/config";
   import type { Alert, AlertRange, Measurement, ValueStatus } from "$lib/types";
   import { onDestroy, onMount } from "svelte";
 
@@ -26,6 +26,62 @@
   const pressureStatus = $derived(latestData ? getValueStatus(latestData.pressure, alertRanges.pressure) : "normal");
   const humidityStatus = $derived(latestData ? getValueStatus(latestData.humidity, alertRanges.humidity) : "normal");
 
+  let socket: WebSocket | null = null;
+
+  $effect(() => {
+    socket = new WebSocket(SOCKET_URL);
+    console.log(socket)
+    socket.onopen = () => {
+      console.log("🟢 WebSocket conectado");
+      isOnline = true;
+    };
+
+    socket.onmessage = (event: MessageEvent) => {
+      try {
+        const message = JSON.parse(event.data);
+        console.log("📥 WebSocket mensaje:", message);
+
+        if (message.type === "initial_data") {
+          data = message.data;
+          if (message.data[0]) {
+            lastDataTimestamp = message.data[0].timestamp;
+          }
+          console.log("✅ Datos iniciales cargados:", data.length, "mediciones");
+
+        } else if (message.type === "new_measurement") {
+          const newMeasurement = message.data;
+          data = [newMeasurement, ...data.slice(0, currentLimit - 1)];
+
+          const newTimestamp = newMeasurement.timestamp;
+          if (newTimestamp > lastDataTimestamp) {
+            lastDataTimestamp = newTimestamp;
+            showNewDataNotification(newMeasurement);
+          }
+          console.log("Nueva medición agregada:", newMeasurement);
+        }
+      } catch (error) {
+        console.error("Error parseando WebSocket:", error);
+      }
+    };
+
+    socket.onerror = (error) => {
+      console.error(" WebSocket error:", error);
+      isOnline = false;
+    };
+
+    socket.onclose = () => {
+      console.log("WebSocket cerrado");
+      isOnline = false;
+    };
+
+    return () => {
+      if (socket?.readyState === WebSocket.OPEN) {
+        console.log("Cerrando WebSocket...");
+        socket.close();
+      }
+    };
+  });
+
   $effect(() => {
     if (isAutoRefreshEnabled && refreshIntervalMs) {
       startAutoRefresh();
@@ -41,7 +97,9 @@
   });
 
   onMount(() => {
-    loadData();
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      loadData();
+    }
   });
 
   onDestroy(() => {
@@ -62,40 +120,14 @@
 
   async function loadData() {
     try {
-      const statusResponse = await checkApiStatus();
-      isOnline = statusResponse.ok;
-
-      if (!isOnline) return;
-
       const response = await getSensorData(currentLimit);
-
-      if (!response.ok) {
-        // noinspection ExceptionCaughtLocallyJS
-        throw new Error(`HTTP error! status: ${response.response.status}`);
+      if (response.ok) {
+        data = response.data;
+        console.log("Datos cargados desde http:", data.length);
       }
-
-      const apiResponse = response.data;
-      const latestTimestamp = apiResponse[0]?.timestamp || 0;
-      const hasNewData = latestTimestamp > lastDataTimestamp;
-
-      if (hasNewData) {
-        lastDataTimestamp = latestTimestamp;
-        showNewDataNotification(apiResponse[0]);
-      }
-
-      data = apiResponse;
     } catch (error) {
-      console.error(error);
-      showError("Error al cargar los datos de la API");
+      console.error("erro cargando con http", error);
     }
-  }
-
-  function toggleAutoRefresh() {
-    isAutoRefreshEnabled = !isAutoRefreshEnabled;
-    console.log(isAutoRefreshEnabled ?
-      `🟢 Auto-refresh ACTIVADO cada ${refreshIntervalMs / 1000} segundos` :
-      "🔴 Auto-refresh DESACTIVADO"
-    );
   }
 
   function clearAllAlerts() {
@@ -260,25 +292,6 @@
 
     document.body.appendChild(notification);
     setTimeout(() => notification.remove(), 3000);
-  }
-
-  function showError(message: string) {
-    const errorDiv = document.createElement("div");
-    errorDiv.textContent = `❌ ${message}`;
-    errorDiv.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #e74c3c;
-      color: white;
-      padding: 15px 20px;
-      border-radius: 8px;
-      z-index: 1000;
-      font-weight: 600;
-    `;
-
-    document.body.appendChild(errorDiv);
-    setTimeout(() => errorDiv.remove(), 5000);
   }
 
   function playAlertSound(severity: ValueStatus) {
@@ -451,7 +464,6 @@
         class="btn"
         class:primary={isAutoRefreshEnabled}
         class:secondary={!isAutoRefreshEnabled}
-        onclick={toggleAutoRefresh}
       >
         ⏱️ Auto: {isAutoRefreshEnabled ? `ON (${refreshIntervalMs / 1000}s)` : "OFF"}
       </button>
