@@ -1,19 +1,19 @@
 import sqlite3
 from time import time
-
+from json import dumps, loads
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
-from flask_socketio import SocketIO, emit, disconnect
+from flask_sock import Sock
+
 app = Flask(__name__)
 CORS(app)
 
-socketio = SocketIO(
-    app,
-    cors_allowed_origins="*",
-    async_mode='threading',
-    logger=True,
-    engineio_logger=True
-)
+app.config["SOCK_SERVER_OPTIONS"] = {
+    "ping_interval": 25,
+}
+sock = Sock(app)
+
+clients = []
 
 connection = sqlite3.connect("sensor.db", check_same_thread=False)
 cursor = connection.cursor()
@@ -41,38 +41,39 @@ def row_to_dict(row: tuple) -> dict:
         "timestamp": row[5],
     }
 
-@socketio.on('connect')
-def handle_connect():
-    emit('conectado', {'message': 'te conectaste a al api'})
 
-@socketio.on('disconnect')
-def handle_disconnect():
-    emit('desconectado', {'message': f'{request.sid}'}, broadcast=True)
+@sock.route("/ws")
+def connect_ws(ws):
+    clients.append(ws)
+    result = cursor.execute(
+        """
+        SELECT id, sensor_id, temperature, pressure, humidity, timestamp
+        FROM measurement
+        ORDER BY timestamp DESC
+        LIMIT 20;
+        """,
+    )
+    initial_data = result.fetchall()
+    measurements = [row_to_dict(row) for row in initial_data]
 
+    initial_message = {
+        "type": "initial_data",
+        "data": measurements
+    }
+    ws.send(dumps(initial_message))
 
-@socketio.on('request_latest_data')
-def handle_request_latest_data(data):
     try:
-        start_timestamp = data.get('start_timestamp', 0)
-        end_timestamp = data.get('end_timestamp', int(time() * 1000))
-        limit = data.get('limit', -1)
+        while True:
+            data = ws.receive()
+            if data == "close":
+                break
+    except:
+        pass
+    finally:
+        if ws in clients:
+            clients.remove(ws)
 
-        result = cursor.execute(
-            """
-            SELECT id, sensor_id, temperature, pressure, humidity, timestamp
-            FROM measurement
-            WHERE timestamp BETWEEN ? AND ?
-            ORDER BY timestamp DESC
-            LIMIT ?;
-            """,
-            (start_timestamp, end_timestamp, limit),
-        )
-        measurements = [row_to_dict(row) for row in result.fetchall()]
-        emit('latest_data', {'data': measurements})
 
-    except Exception as e:
-        print(f"Error en WebSocket request_latest_data: {e}")
-        emit('error', {'message': 'Error interno del servidor'})
 @app.route("/api/ping", methods=["GET"])
 def health_check() -> tuple[str, int]:
     return "", 200
@@ -134,6 +135,17 @@ def create_sensor_data() -> tuple[Response | str, int]:
         )
         connection.commit()
 
+        ws_message = {
+            "type": "new_measurement",
+            "data": data
+        }
+        json_data = dumps(ws_message)
+        for client in clients:
+            try:
+                client.send(json_data)
+            except:
+                pass
+
         return "", 201
 
     except Exception as e:
@@ -149,7 +161,7 @@ def create_sensor_data() -> tuple[Response | str, int]:
 def get_sensor_data() -> tuple[Response, int]:
     try:
         start_timestamp = request.args.get("start_timestamp", type=int, default=0)
-        end_timestamp = request.args.get("end_timestamp", type=int, default=time() * 1000)
+        end_timestamp = request.args.get("end_timestamp", type=int, default=int(time() * 1000))
         limit = request.args.get("limit", type=int, default=-1)
 
         result = cursor.execute(
@@ -180,7 +192,7 @@ def get_sensor_data() -> tuple[Response, int]:
 def get_sensor_data_by_id(sensor_id: int) -> tuple[Response, int]:
     try:
         start_timestamp = request.args.get("start_timestamp", type=int, default=0)
-        end_timestamp = request.args.get("end_timestamp", type=int, default=time() * 1000)
+        end_timestamp = request.args.get("end_timestamp", type=int, default=int(time() * 1000))
         limit = request.args.get("limit", type=int, default=-1)
 
         result = cursor.execute(
@@ -227,4 +239,9 @@ def method_not_allowed(_) -> tuple[Response, int]:
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(
+        debug=True,
+        host="0.0.0.0",
+        port=5000,
+        use_reloader=False
+    )
