@@ -3,9 +3,17 @@ from time import time
 
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
-
+from flask_socketio import SocketIO, emit, disconnect
 app = Flask(__name__)
 CORS(app)
+
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode='threading',
+    logger=True,
+    engineio_logger=True
+)
 
 connection = sqlite3.connect("sensor.db", check_same_thread=False)
 cursor = connection.cursor()
@@ -33,7 +41,38 @@ def row_to_dict(row: tuple) -> dict:
         "timestamp": row[5],
     }
 
+@socketio.on('connect')
+def handle_connect():
+    emit('conectado', {'message': 'te conectaste a al api'})
 
+@socketio.on('disconnect')
+def handle_disconnect():
+    emit('desconectado', {'message': f'{request.sid}'}, broadcast=True)
+
+
+@socketio.on('request_latest_data')
+def handle_request_latest_data(data):
+    try:
+        start_timestamp = data.get('start_timestamp', 0)
+        end_timestamp = data.get('end_timestamp', int(time() * 1000))
+        limit = data.get('limit', -1)
+
+        result = cursor.execute(
+            """
+            SELECT id, sensor_id, temperature, pressure, humidity, timestamp
+            FROM measurement
+            WHERE timestamp BETWEEN ? AND ?
+            ORDER BY timestamp DESC
+            LIMIT ?;
+            """,
+            (start_timestamp, end_timestamp, limit),
+        )
+        measurements = [row_to_dict(row) for row in result.fetchall()]
+        emit('latest_data', {'data': measurements})
+
+    except Exception as e:
+        print(f"Error en WebSocket request_latest_data: {e}")
+        emit('error', {'message': 'Error interno del servidor'})
 @app.route("/api/ping", methods=["GET"])
 def health_check() -> tuple[str, int]:
     return "", 200
