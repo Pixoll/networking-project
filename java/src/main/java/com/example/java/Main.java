@@ -14,6 +14,7 @@ import org.eclipse.milo.opcua.stack.core.types.structured.ReadValueId;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -190,17 +191,20 @@ public class Main {
             final SensorData sensorData = parseSensorData(result.sensorData);
             final String timestampString = formatTimestamp(sensorData.timestamp);
 
-            final String statusText = isValid ? "VALID" : "INVALID";
+            final String statusText = isValid ? "VALID" : "INVALID | will not send to API";
+            final PrintStream out = isValid ? System.out : System.err;
 
-            System.out.println("\n[sub] signature: " + statusText);
-            System.out.println("    sensor_id        = " + sensorData.sensorId);
-            System.out.println("    temperature      = " + sensorData.temperature);
-            System.out.println("    pressure         = " + sensorData.pressure);
-            System.out.println("    humidity         = " + sensorData.humidity);
-            System.out.println("    timestamp        = " + timestampString);
-            System.out.println("    signature_length = " + result.signature.length);
+            out.println("\n[sub] signature: " + statusText);
+            out.println("    sensor_id        = " + sensorData.sensorId);
+            out.println("    temperature      = " + sensorData.temperature);
+            out.println("    pressure         = " + sensorData.pressure);
+            out.println("    humidity         = " + sensorData.humidity);
+            out.println("    timestamp        = " + timestampString);
+            out.println("    signature_length = " + result.signature.length);
 
-            sendDataToApi(sensorData);
+            if (isValid) {
+                sendDataToApi(sensorData);
+            }
         } catch (final Exception e) {
             System.err.println("Error processing data: " + e.getMessage());
         }
