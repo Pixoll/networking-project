@@ -144,11 +144,9 @@ int main(const int argc, const char *argv[]) {
     UA_ClientConfig_setDefault(UA_Client_getConfig(client));
 
     UA_StatusCode status = UA_Client_connect(client, "opc.tcp://localhost:4840");
-    if (status != UA_STATUSCODE_GOOD) {
+    while (status != UA_STATUSCODE_GOOD) {
         std::cerr << "Error connecting to OPC UA server: " << UA_StatusCode_name(status) << std::endl;
-        UA_Client_delete(client);
-        EVP_PKEY_free(private_key);
-        return EXIT_FAILURE;
+        status = UA_Client_connect(client, "opc.tcp://localhost:4840");
     }
 
     std::mt19937 gen(std::random_device{}());

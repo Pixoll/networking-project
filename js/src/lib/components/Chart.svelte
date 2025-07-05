@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Measurement } from "$lib/types";
-  import { generateHexColors } from "$lib/utils/randomColors";
+  import { generateHexColors } from "$lib/utils";
   import type { ApexOptions } from "apexcharts";
   import ApexCharts from "apexcharts";
   import { onMount } from "svelte";

@@ -225,6 +225,10 @@ public class Main {
                     } else {
                         System.err.println("Could not send data to API: " + response.body());
                     }
+                })
+                .exceptionally(throwable -> {
+                    System.err.println("Could not send data to API: " + throwable.getMessage());
+                    return null;
                 });
         }
     }
@@ -236,13 +240,19 @@ public class Main {
             return;
         }
 
-        final OpcUaClient client;
+        OpcUaClient client = null;
 
-        try {
-            client = OpcUaClient.create(NODE_URL);
-        } catch (final Exception e) {
-            System.err.println("Error creating client: " + e.getMessage());
-            return;
+        while (client == null) {
+            try {
+                client = OpcUaClient.create(NODE_URL);
+            } catch (final Exception e) {
+                System.err.println("Error creating client: " + e.getMessage());
+                try {
+                    Thread.sleep(5_000);
+                } catch (final InterruptedException ee) {
+                    return;
+                }
+            }
         }
 
         final CountDownLatch shutdownLatch = new CountDownLatch(1);

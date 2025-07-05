@@ -1,10 +1,10 @@
 import { SOCKET_BASE_URL } from "./config";
 
 type WSMethods<T> = {
-  onOpen: () => void;
-  onData: (data: T) => void;
-  onError: () => void;
-  onClose: (reason: string) => void;
+  onOpen: () => Promise<void> | void;
+  onData: (data: T) => Promise<void> | void;
+  onError?: () => Promise<void> | void;
+  onClose: (event: CloseEvent) => Promise<void> | void;
 };
 
 export function openWS<T>(path: string, { onOpen, onData, onError, onClose }: WSMethods<T>): WebSocket {
@@ -23,12 +23,12 @@ export function openWS<T>(path: string, { onOpen, onData, onError, onClose }: WS
 
   socket.onerror = (event) => {
     console.error("WebSocket error:", event);
-    onError();
+    onError?.();
   };
 
   socket.onclose = (event) => {
     console.log("WebSocket closed:", event);
-    onClose(event.reason);
+    onClose(event);
   };
 
   return socket;

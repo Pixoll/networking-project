@@ -6,6 +6,7 @@
   import MetricCard from "$lib/components/MetricCard.svelte";
   import { alertRanges, humidityOptions, pressureOptions, temperatureOptions } from "$lib/config";
   import type { Alert, AlertRange, Measurement, ValueStatus } from "$lib/types";
+  import { sleep } from "$lib/utils";
   import { closeWS, openWS } from "$lib/websocket";
   import { onDestroy, onMount } from "svelte";
 
@@ -32,17 +33,66 @@
   });
 
   onMount(async () => {
-    await loadData();
+    while (!isOnline) {
+      try {
+        const statusResponse = await checkApiStatus();
+        isOnline = statusResponse.ok;
+      } catch (error) {
+        await sleep(5_000);
+      }
+    }
 
+    await loadData();
+    openMeasurementsWS();
+  });
+
+  onDestroy(() => {
+    if (socket) {
+      closeWS(socket);
+    }
+  });
+
+  async function loadData() {
+    let success = false;
+
+    while (!success) {
+      try {
+        const response = await getSensorData(currentLimit);
+
+        if (!response.ok) {
+          console.error(`HTTP error: ${response.error}`);
+          await sleep(5_000);
+          continue;
+        }
+
+        data = response.data;
+
+        const lastMeasurement = data[0];
+        if (lastMeasurement) {
+          lastDataTimestamp = lastMeasurement.timestamp;
+        }
+
+        console.log("Datos cargados desde http:", data.length);
+        success = true;
+      } catch (error) {
+        console.error("erro cargando con http", error);
+        await sleep(5_000);
+      }
+    }
+  }
+
+  function openMeasurementsWS() {
     socket = openWS<Measurement>("measurements", {
       onOpen() {
         isOnline = true;
       },
-      onClose() {
+      async onClose(event) {
         isOnline = false;
-      },
-      onError() {
-        isOnline = false;
+
+        if (!event.wasClean) {
+          await sleep(5_000);
+          openMeasurementsWS();
+        }
       },
       onData(measurement) {
         data.push(measurement);
@@ -58,39 +108,6 @@
         }
       },
     });
-  });
-
-  onDestroy(() => {
-    if (socket) {
-      closeWS(socket);
-    }
-  });
-
-  async function loadData() {
-    const statusResponse = await checkApiStatus();
-    isOnline = statusResponse.ok;
-
-    if (!isOnline) return;
-
-    try {
-      const response = await getSensorData(currentLimit);
-
-      if (!response.ok) {
-        // noinspection ExceptionCaughtLocallyJS
-        throw new Error(`HTTP error! status: ${response.response.status}`);
-      }
-
-      data = response.data;
-
-      const lastMeasurement = data[0];
-      if (lastMeasurement) {
-        lastDataTimestamp = lastMeasurement.timestamp;
-      }
-
-      console.log("Datos cargados desde http:", data.length);
-    } catch (error) {
-      console.error("erro cargando con http", error);
-    }
   }
 
   function clearAllAlerts() {
