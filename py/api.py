@@ -1,9 +1,10 @@
 import sqlite3
+from json import dumps
 from time import time
-from json import dumps, loads
+
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
-from flask_sock import Sock
+from flask_sock import Server, Sock
 
 app = Flask(__name__)
 CORS(app)
@@ -13,7 +14,7 @@ app.config["SOCK_SERVER_OPTIONS"] = {
 }
 sock = Sock(app)
 
-clients = []
+clients: set[Server] = set()
 
 connection = sqlite3.connect("sensor.db", check_same_thread=False)
 cursor = connection.cursor()
@@ -42,36 +43,19 @@ def row_to_dict(row: tuple) -> dict:
     }
 
 
-@sock.route("/ws")
-def connect_ws(ws):
-    clients.append(ws)
-    result = cursor.execute(
-        """
-        SELECT id, sensor_id, temperature, pressure, humidity, timestamp
-        FROM measurement
-        ORDER BY timestamp DESC
-        LIMIT 20;
-        """,
-    )
-    initial_data = result.fetchall()
-    measurements = [row_to_dict(row) for row in initial_data]
-
-    initial_message = {
-        "type": "initial_data",
-        "data": measurements
-    }
-    ws.send(dumps(initial_message))
+@sock.route("/ws/measurements")
+def connect_ws(ws: Server) -> None:
+    clients.add(ws)
 
     try:
         while True:
             data = ws.receive()
             if data == "close":
                 break
-    except:
-        pass
+    except Exception as e:
+        print(e)
     finally:
-        if ws in clients:
-            clients.remove(ws)
+        clients.discard(ws)
 
 
 @app.route("/api/ping", methods=["GET"])
@@ -129,22 +113,30 @@ def create_sensor_data() -> tuple[Response | str, int]:
         cursor.execute(
             """
             INSERT INTO measurement (sensor_id, temperature, pressure, humidity, timestamp)
-            VALUES (?, ?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?)
+            RETURNING id;
             """,
             (sensor_id, temperature, pressure, humidity, timestamp),
         )
+        measurement_id = cursor.fetchone()[0]
         connection.commit()
 
-        ws_message = {
-            "type": "new_measurement",
-            "data": data
-        }
-        json_data = dumps(ws_message)
+        json_data = dumps(
+            {
+                "id": measurement_id,
+                "sensor_id": sensor_id,
+                "temperature": temperature,
+                "pressure": pressure,
+                "humidity": humidity,
+                "timestamp": timestamp,
+            },
+        )
+
         for client in clients:
             try:
                 client.send(json_data)
-            except:
-                pass
+            except Exception as e:
+                print(e)
 
         return "", 201
 
@@ -243,5 +235,5 @@ if __name__ == "__main__":
         debug=True,
         host="0.0.0.0",
         port=5000,
-        use_reloader=False
+        use_reloader=False,
     )

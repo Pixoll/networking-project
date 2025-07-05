@@ -1,8 +1,9 @@
 import type { ApexOptions } from "apexcharts";
 import type { AlertRange, AlertType } from "./types";
 
-export const API_BASE_URL = "http://localhost:5000";
-export const SOCKET_URL = "ws://localhost:5000/ws";
+export const API_BASE_URL = "http://localhost:5000/api";
+export const SOCKET_BASE_URL = "ws://localhost:5000/ws";
+
 export const alertRanges: Record<AlertType, AlertRange> = {
   temperature: { min: 10, max: 40 },
   pressure: { min: 990, max: 1040 },

@@ -3,10 +3,16 @@
   import type { AlertRange, Measurement, ValueStatus } from "$lib/types";
 
   type Props = {
-    data?: Measurement[];
+    data: Measurement[];
   }
 
-  let { data = [] }: Props = $props();
+  let { data }: Props = $props();
+
+  function* reversedData() {
+    for (let i = data.length - 1; i >= 0; i--) {
+      yield data[i];
+    }
+  }
 
   function formatTimestamp(timestamp: number): string {
     return new Date(timestamp).toLocaleString("en-GB", {
@@ -48,7 +54,7 @@
             <td class="no-data" colspan="6">No hay datos disponibles</td>
           </tr>
         {:else}
-          {#each data as item (`${item.id}-${item.timestamp}`)}
+          {#each reversedData() as item (`${item.id}-${item.timestamp}`)}
             {@const tempStatus = getValueStatus(item.temperature, alertRanges.temperature)}
             {@const pressureStatus = getValueStatus(item.pressure, alertRanges.pressure)}
             {@const humidityStatus = getValueStatus(item.humidity, alertRanges.humidity)}

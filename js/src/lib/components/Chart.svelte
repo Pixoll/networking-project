@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Measurement } from "$lib/types";
-  import type { ApexOptions } from "apexcharts";
   import { generateHexColors } from "$lib/utils/randomColors";
+  import type { ApexOptions } from "apexcharts";
   import ApexCharts from "apexcharts";
   import { onMount } from "svelte";
 
@@ -9,12 +9,12 @@
     title: string;
     chartId: string;
     options: ApexOptions;
-    data?: Measurement[];
+    data: Measurement[];
     dataKey: keyof Pick<Measurement, "temperature" | "pressure" | "humidity">;
     fullWidth?: boolean;
   }
 
-  let { title, chartId, options, data = [], dataKey, fullWidth = false }: Props = $props();
+  let { title, chartId, options, data, dataKey, fullWidth = false }: Props = $props();
 
   let chart: ApexCharts;
   let chartElement: HTMLElement;
@@ -32,9 +32,7 @@
   });
 
   $effect(() => {
-    if (chart && data) {
-      updateChart(data);
-    }
+    updateChart(data);
   });
 
   function groupDataBySensor(measurements: Measurement[]): Map<number, { x: number; y: number }[]> {

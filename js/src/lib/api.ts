@@ -12,12 +12,12 @@ type ApiResponse<T> = {
 });
 
 export async function checkApiStatus(): Promise<ApiResponse<undefined>> {
-  const response = await fetch(`${API_BASE_URL}/api/ping`);
+  const response = await fetch(`${API_BASE_URL}/ping`);
   return await wrapResponse(response);
 }
 
 export async function getSensorData(limit: number): Promise<ApiResponse<Measurement[]>> {
-  const response = await fetch(`${API_BASE_URL}/api/measurements?limit=${limit}`);
+  const response = await fetch(`${API_BASE_URL}/measurements?limit=${limit}`);
   return await wrapResponse(response, true);
 }
 

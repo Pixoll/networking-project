@@ -1,22 +1,21 @@
 <script lang="ts">
-  import { getSensorData } from "$lib/api";
+  import { checkApiStatus, getSensorData } from "$lib/api";
   import AlertPanel from "$lib/components/AlertPanel.svelte";
   import Chart from "$lib/components/Chart.svelte";
   import DataTable from "$lib/components/DataTable.svelte";
   import MetricCard from "$lib/components/MetricCard.svelte";
-  import {alertRanges, humidityOptions, pressureOptions, SOCKET_URL, temperatureOptions} from "$lib/config";
+  import { alertRanges, humidityOptions, pressureOptions, temperatureOptions } from "$lib/config";
   import type { Alert, AlertRange, Measurement, ValueStatus } from "$lib/types";
+  import { closeWS, openWS } from "$lib/websocket";
   import { onDestroy, onMount } from "svelte";
 
   let data = $state<Measurement[]>([]);
   let isOnline = $state(false);
-  let isAutoRefreshEnabled = $state(false);
   let currentLimit = $state(20);
-  let refreshIntervalMs = $state(2000);
   let activeAlerts = $state<Set<string>>(new Set());
   let alertLog = $state<Alert[]>([]);
   let lastDataTimestamp = $state(0);
-  let autoRefreshInterval: number | null = null;
+  let socket: WebSocket | null = null;
 
   const latestData = $derived<Measurement | undefined>(data[0]);
   const alertCount = $derived(activeAlerts.size);
@@ -26,105 +25,69 @@
   const pressureStatus = $derived(latestData ? getValueStatus(latestData.pressure, alertRanges.pressure) : "normal");
   const humidityStatus = $derived(latestData ? getValueStatus(latestData.humidity, alertRanges.humidity) : "normal");
 
-  let socket: WebSocket | null = null;
-
-  $effect(() => {
-    socket = new WebSocket(SOCKET_URL);
-    console.log(socket)
-    socket.onopen = () => {
-      console.log("🟢 WebSocket conectado");
-      isOnline = true;
-    };
-
-    socket.onmessage = (event: MessageEvent) => {
-      try {
-        const message = JSON.parse(event.data);
-        console.log("📥 WebSocket mensaje:", message);
-
-        if (message.type === "initial_data") {
-          data = message.data;
-          if (message.data[0]) {
-            lastDataTimestamp = message.data[0].timestamp;
-          }
-          console.log("✅ Datos iniciales cargados:", data.length, "mediciones");
-
-        } else if (message.type === "new_measurement") {
-          const newMeasurement = message.data;
-          data = [newMeasurement, ...data.slice(0, currentLimit - 1)];
-
-          const newTimestamp = newMeasurement.timestamp;
-          if (newTimestamp > lastDataTimestamp) {
-            lastDataTimestamp = newTimestamp;
-            showNewDataNotification(newMeasurement);
-          }
-          console.log("Nueva medición agregada:", newMeasurement);
-        }
-      } catch (error) {
-        console.error("Error parseando WebSocket:", error);
-      }
-    };
-
-    socket.onerror = (error) => {
-      console.error(" WebSocket error:", error);
-      isOnline = false;
-    };
-
-    socket.onclose = () => {
-      console.log("WebSocket cerrado");
-      isOnline = false;
-    };
-
-    return () => {
-      if (socket?.readyState === WebSocket.OPEN) {
-        console.log("Cerrando WebSocket...");
-        socket.close();
-      }
-    };
-  });
-
-  $effect(() => {
-    if (isAutoRefreshEnabled && refreshIntervalMs) {
-      startAutoRefresh();
-    } else {
-      stopAutoRefresh();
-    }
-  });
-
   $effect(() => {
     if (latestData) {
       checkAlerts(latestData);
     }
   });
 
-  onMount(() => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      loadData();
-    }
+  onMount(async () => {
+    await loadData();
+
+    socket = openWS<Measurement>("measurements", {
+      onOpen() {
+        isOnline = true;
+      },
+      onClose() {
+        isOnline = false;
+      },
+      onError() {
+        isOnline = false;
+      },
+      onData(measurement) {
+        data.push(measurement);
+
+        if (data.length > currentLimit) {
+          data.shift();
+        }
+
+        const newTimestamp = measurement.timestamp;
+        if (newTimestamp > lastDataTimestamp) {
+          lastDataTimestamp = newTimestamp;
+          showNewDataNotification(measurement);
+        }
+      },
+    });
   });
 
   onDestroy(() => {
-    stopAutoRefresh();
+    if (socket) {
+      closeWS(socket);
+    }
   });
 
-  function startAutoRefresh() {
-    stopAutoRefresh();
-    autoRefreshInterval = setInterval(loadData, refreshIntervalMs);
-  }
-
-  function stopAutoRefresh() {
-    if (autoRefreshInterval) {
-      clearInterval(autoRefreshInterval);
-      autoRefreshInterval = null;
-    }
-  }
-
   async function loadData() {
+    const statusResponse = await checkApiStatus();
+    isOnline = statusResponse.ok;
+
+    if (!isOnline) return;
+
     try {
       const response = await getSensorData(currentLimit);
-      if (response.ok) {
-        data = response.data;
-        console.log("Datos cargados desde http:", data.length);
+
+      if (!response.ok) {
+        // noinspection ExceptionCaughtLocallyJS
+        throw new Error(`HTTP error! status: ${response.response.status}`);
       }
+
+      data = response.data;
+
+      const lastMeasurement = data[0];
+      if (lastMeasurement) {
+        lastDataTimestamp = lastMeasurement.timestamp;
+      }
+
+      console.log("Datos cargados desde http:", data.length);
     } catch (error) {
       console.error("erro cargando con http", error);
     }
@@ -335,11 +298,6 @@
     });
   }
 
-  function handleRefreshRateChange(event: Event) {
-    const target = event.target as HTMLSelectElement;
-    refreshIntervalMs = parseInt(target.value);
-  }
-
   function handleTimeRangeChange(event: Event) {
     const target = event.target as HTMLSelectElement;
     currentLimit = parseInt(target.value);
@@ -460,14 +418,6 @@
         🔄 Actualizar
       </button>
 
-      <button
-        class="btn"
-        class:primary={isAutoRefreshEnabled}
-        class:secondary={!isAutoRefreshEnabled}
-      >
-        ⏱️ Auto: {isAutoRefreshEnabled ? `ON (${refreshIntervalMs / 1000}s)` : "OFF"}
-      </button>
-
       <button class="btn warning" onclick={clearAllAlerts}>
         🗑️ Limpiar Alertas
       </button>
@@ -476,13 +426,6 @@
         <option value={10}>Últimos 10 datos</option>
         <option value={20}>Últimos 20 datos</option>
         <option value={50}>Últimos 50 datos</option>
-      </select>
-
-      <select class="select" bind:value={refreshIntervalMs} onchange={handleRefreshRateChange}>
-        <option value={1000}>1 segundo</option>
-        <option value={2000}>2 segundos</option>
-        <option value={5000}>5 segundos</option>
-        <option value={10000}>10 segundos</option>
       </select>
     </div>
 
@@ -629,12 +572,6 @@
   .btn.primary {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-  }
-
-  .btn.secondary {
-    background: rgba(255, 255, 255, 0.9);
-    border: 2px solid #dddddd;
-    color: #333333;
   }
 
   .btn.warning {
