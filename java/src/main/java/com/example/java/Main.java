@@ -13,6 +13,10 @@ import org.eclipse.milo.opcua.stack.core.types.structured.MonitoringParameters;
 import org.eclipse.milo.opcua.stack.core.types.structured.ReadValueId;
 import org.json.JSONObject;
 
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URI;
@@ -39,6 +43,12 @@ public class Main {
     private static final String ENDPOINT_URL = "http://localhost:5000/api/measurements";
     private static final String PUBLIC_KEY_PATH = "../.keys/sensor_public.pem";
     private static final String NODE_ID = "ns=1;s=sensor";
+    private static final String AES_KEY_PATH = "../.keys/aes.key";
+    private static final String AES_ALGORITHM = "AES/GCM/NoPadding";
+    private static final int GCM_IV_LENGTH = 12;
+    private static final int GCM_TAG_LENGTH = 16;
+    private static final Base64.Decoder BASE64_DECODER = Base64.getDecoder();
+    private static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder();
 
     public record SensorData(
         int sensorId,
@@ -47,7 +57,7 @@ public class Main {
         float humidity,
         long timestamp
     ) {
-        String toJSON() {
+        public String toJSON() {
             return new JSONObject()
                 .put("sensor_id", this.sensorId)
                 .put("temperature", this.temperature)
@@ -64,6 +74,18 @@ public class Main {
     ) {
     }
 
+    public record EncryptedData(
+        String encryptedData,
+        String iv
+    ) {
+        public String toJSON() {
+            return new JSONObject()
+                .put("encrypted_data", this.encryptedData)
+                .put("iv", this.iv)
+                .toString();
+        }
+    }
+
     public static PublicKey loadPublicKey(final String keyPath) {
         try {
             final byte[] keyBytes = Files.readAllBytes(Paths.get(keyPath));
@@ -72,13 +94,45 @@ public class Main {
                 .replace("-----END PUBLIC KEY-----", "")
                 .replaceAll("\\s", "");
 
-            final byte[] decodedKey = Base64.getDecoder().decode(keyContent);
+            final byte[] decodedKey = BASE64_DECODER.decode(keyContent);
             final X509EncodedKeySpec keySpec = new X509EncodedKeySpec(decodedKey);
             final KeyFactory keyFactory = KeyFactory.getInstance("RSA");
 
             return keyFactory.generatePublic(keySpec);
         } catch (final IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
             System.err.println("Error loading public key: " + e.getMessage());
+            return null;
+        }
+    }
+
+    public static SecretKey loadAESKey(final String keyPath) {
+        try {
+            final byte[] keyBytes = Files.readAllBytes(Paths.get(keyPath));
+            return new SecretKeySpec(keyBytes, "AES");
+        } catch (final IOException e) {
+            System.err.println("Error loading AES key: " + e.getMessage());
+            return null;
+        }
+    }
+
+    public static EncryptedData encryptData(final String data, final SecretKey key) {
+        try {
+            final Cipher cipher = Cipher.getInstance(AES_ALGORITHM);
+
+            final byte[] iv = new byte[GCM_IV_LENGTH];
+            new SecureRandom().nextBytes(iv);
+
+            final GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH * 8, iv);
+            cipher.init(Cipher.ENCRYPT_MODE, key, gcmSpec);
+
+            final byte[] encryptedData = cipher.doFinal(data.getBytes());
+
+            return new EncryptedData(
+                BASE64_ENCODER.encodeToString(encryptedData),
+                BASE64_ENCODER.encodeToString(iv)
+            );
+        } catch (final Exception e) {
+            System.err.println("Error encrypting data: " + e.getMessage());
             return null;
         }
     }
@@ -153,7 +207,7 @@ public class Main {
 
         final MonitoringParameters parameters = new MonitoringParameters(
             UInteger.valueOf(1),
-            500.0,
+            subscription.getRequestedPublishingInterval(),
             null,
             UInteger.valueOf(10),
             true
@@ -171,7 +225,7 @@ public class Main {
         ).get().getFirst();
     }
 
-    public static void consumeValue(final PublicKey publicKey, final DataValue value) {
+    public static void consumeValue(final PublicKey publicKey, final SecretKey aesKey, final DataValue value) {
         try {
             final Variant variant = value.getValue();
             if (variant == null || variant.getValue() == null) {
@@ -203,37 +257,49 @@ public class Main {
             out.println("    signature_length = " + result.signature.length);
 
             if (isValid) {
-                sendDataToApi(sensorData);
+                sendEncryptedDataToApi(sensorData, aesKey);
             }
         } catch (final Exception e) {
             System.err.println("Error processing data: " + e.getMessage());
         }
     }
 
-    public static void sendDataToApi(final SensorData sensorData) {
-        System.out.println("Sending data to API");
+    public static void sendEncryptedDataToApi(final SensorData sensorData, final SecretKey aesKey) {
+        System.out.println("Encrypting and sending data to API");
 
-        try (final HttpClient client = HttpClient.newHttpClient()) {
-            final HttpRequest request = HttpRequest
-                .newBuilder()
-                .uri(URI.create(ENDPOINT_URL))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(sensorData.toJSON()))
-                .build();
+        try {
+            final EncryptedData encryptedData = encryptData(sensorData.toJSON(), aesKey);
+            if (encryptedData == null) {
+                System.err.println("Failed to encrypt data");
+                return;
+            }
 
-            client
-                .sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenAccept(response -> {
-                    if (response.statusCode() == 201) {
-                        System.out.println("Successfully sent data to API");
-                    } else {
-                        System.err.println("Could not send data to API: " + response.body());
-                    }
-                })
-                .exceptionally(throwable -> {
-                    System.err.println("Could not send data to API: " + throwable.getMessage());
-                    return null;
-                });
+            System.out.println("Data encrypted successfully");
+
+            try (final HttpClient client = HttpClient.newHttpClient()) {
+                final HttpRequest request = HttpRequest
+                    .newBuilder()
+                    .uri(URI.create(ENDPOINT_URL))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(encryptedData.toJSON()))
+                    .build();
+
+                client
+                    .sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenAccept(response -> {
+                        if (response.statusCode() == 201) {
+                            System.out.println("Successfully sent encrypted data to API");
+                        } else {
+                            System.err.println("Could not send encrypted data to API: " + response.body());
+                        }
+                    })
+                    .exceptionally(throwable -> {
+                        System.err.println("Could not send encrypted data to API: " + throwable.getMessage());
+                        return null;
+                    });
+            }
+        } catch (final Exception e) {
+            System.err.println("Error sending encrypted data: " + e.getMessage());
         }
     }
 
@@ -241,6 +307,12 @@ public class Main {
         final PublicKey publicKey = loadPublicKey(PUBLIC_KEY_PATH);
         if (publicKey == null) {
             System.err.println("Failed to load public key");
+            return;
+        }
+
+        final SecretKey aesKey = loadAESKey(AES_KEY_PATH);
+        if (aesKey == null) {
+            System.out.println("Failed to load AES key");
             return;
         }
 
@@ -268,7 +340,7 @@ public class Main {
             final UaMonitoredItem monitoredItem = getMonitoredItem(client);
 
             monitoredItem.setValueConsumer((item, value) ->
-                consumeValue(publicKey, value)
+                consumeValue(publicKey, aesKey, value)
             );
 
             Runtime.getRuntime().addShutdownHook(new Thread(shutdownLatch::countDown));

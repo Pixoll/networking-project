@@ -1,10 +1,16 @@
+import base64
 import sqlite3
-from json import dumps
+from json import dumps, loads
 from time import time
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.ciphers import algorithms, Cipher, modes
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 from flask_sock import Server, Sock
+
+AES_KEY_PATH = "../.keys/aes.key"
+AES_KEY: bytes | None = None
 
 app = Flask(__name__)
 CORS(app)
@@ -30,6 +36,39 @@ cursor.execute(
     );
     """,
 )
+
+
+def load_aes_key() -> None:
+    global AES_KEY
+    try:
+        with open(AES_KEY_PATH, "rb") as key_file:
+            AES_KEY = key_file.read()
+        print("Loaded AES key")
+    except Exception as e:
+        print(f"Error loading AES key: {e}")
+        exit(1)
+
+
+def decrypt_data(encrypted_data: str, iv: str) -> str | None:
+    try:
+        encrypted_bytes = base64.b64decode(encrypted_data)
+        iv_bytes = base64.b64decode(iv)
+
+        ciphertext = encrypted_bytes[:-16]
+        tag = encrypted_bytes[-16:]
+
+        cipher = Cipher(
+            algorithms.AES(AES_KEY),
+            modes.GCM(iv_bytes, tag),
+            backend=default_backend(),
+        )
+        decryptor = cipher.decryptor()
+        decrypted_data = decryptor.update(ciphertext) + decryptor.finalize()
+        return decrypted_data.decode("utf-8")
+
+    except Exception as e:
+        print(f"Decryption error: {e}")
+        return None
 
 
 def row_to_dict(row: tuple) -> dict:
@@ -73,7 +112,34 @@ def create_sensor_data() -> tuple[Response | str, int]:
                 },
             ), 400
 
-        data = request.get_json()
+        encrypted_data = request.get_json()
+        required_fields = ["encrypted_data", "iv"]
+        for field in required_fields:
+            if field not in encrypted_data:
+                return jsonify(
+                    {
+                        "error": f"Campo requerido faltante: {field}",
+                    },
+                ), 400
+
+        decrypted_json = decrypt_data(encrypted_data["encrypted_data"], encrypted_data["iv"])
+        if decrypted_json is None:
+            return jsonify(
+                {
+                    "error": "Error al descifrar los datos",
+                },
+            ), 400
+
+        try:
+            data = loads(decrypted_json)
+        except Exception as e:
+            print(e)
+            return jsonify(
+                {
+                    "error": "Error al parsear los datos descifrados",
+                },
+            ), 400
+
         required_fields = ["sensor_id", "temperature", "pressure", "humidity", "timestamp"]
         for field in required_fields:
             if field not in data:
@@ -231,6 +297,7 @@ def method_not_allowed(_) -> tuple[Response, int]:
 
 
 if __name__ == "__main__":
+    load_aes_key()
     app.run(
         debug=True,
         host="0.0.0.0",
