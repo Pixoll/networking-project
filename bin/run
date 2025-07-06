@@ -1,0 +1,48 @@
+#!/bin/bash
+
+set -e
+cd "$(dirname "$0")/.."
+
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <nodes_amount> <password>"
+  exit 1
+fi
+
+# install dependencies
+sudo apt install build-essential default-jre default-jdk gradle libssl-dev openssl
+
+# generate keys
+bin/generate-keys $2
+
+# compile c++
+cd cpp
+mkdir -p build
+cd build
+cmake ..
+make
+cd ../..
+
+# compile java
+cd java
+./gradlew shadowJar
+cd ..
+
+amount=$1
+
+echo "Starting $amount nodes..."
+cd cpp/build
+./node $amount &
+cd ../..
+
+for ((id=1; id<=amount; id++)); do
+  echo "Starting sensor $id..."
+  cd cpp/build
+  ./sensor $id $2 &
+
+  cd ../../java
+  echo "Starting intermediate server $id..."
+  java -jar build/libs/java-1.0.0-all.jar $id &
+  cd ../
+done
+
+wait
