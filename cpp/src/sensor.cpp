@@ -1,13 +1,15 @@
-// sends serialized and signed data
+// sends serialized and signed data for multiple sensors
 
 #include <chrono>
 #include <csignal>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <mutex>
 #include <random>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <open62541/client.h>
 #include <open62541/client_config_default.h>
@@ -26,6 +28,7 @@ struct __attribute__((packed)) SensorData {
 
 static volatile bool running = true;
 static EVP_PKEY *private_key = nullptr;
+static std::mutex cout_mutex;
 
 static void stop_handler(int) {
     running = false;
@@ -128,26 +131,24 @@ UA_StatusCode serialize_signed_data(
     return UA_STATUSCODE_GOOD;
 }
 
-int main(const int argc, const char *argv[]) {
-    if (argc != 3) {
-        std::cerr << "Usage: ./sensor <sensor_id> <password>" << std::endl;
-        return 1;
-    }
-
-    if (!load_private_key("../../.keys/sensor_private.pem", argv[2])) {
-        return EXIT_FAILURE;
-    }
-
-    std::signal(SIGINT, stop_handler);
-    std::signal(SIGTERM, stop_handler);
-
+void sensor_thread(const int sensor_id) {
     UA_Client *client = UA_Client_new();
     UA_ClientConfig_setDefault(UA_Client_getConfig(client));
 
     UA_StatusCode status = UA_Client_connect(client, "opc.tcp://localhost:4840");
-    while (status != UA_STATUSCODE_GOOD) {
-        std::cerr << "Error connecting to OPC UA server: " << UA_StatusCode_name(status) << std::endl;
+    while (status != UA_STATUSCODE_GOOD && running) {
+        {
+            std::lock_guard<std::mutex> lock(cout_mutex);
+            std::cerr << "Sensor " << sensor_id << " - Error connecting to OPC UA server: "
+                      << UA_StatusCode_name(status) << std::endl;
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         status = UA_Client_connect(client, "opc.tcp://localhost:4840");
+    }
+
+    if (!running) {
+        UA_Client_delete(client);
+        return;
     }
 
     std::mt19937 gen(std::random_device{}());
@@ -156,9 +157,12 @@ int main(const int argc, const char *argv[]) {
     std::normal_distribution<float> hum_dist(75.0f, 5.0f);
     std::normal_distribution<float> interval_dist(4.0f, 1.0f);
 
-    const int32_t sensor_id = std::stoi(argv[1]);
     const std::string node_id = "sensor_" + std::to_string(sensor_id);
-    std::cout << "Sensor " << sensor_id << " started with digital signing enabled" << std::endl;
+
+    {
+        std::lock_guard<std::mutex> lock(cout_mutex);
+        std::cout << "Sensor " << sensor_id << " started with digital signing enabled" << std::endl;
+    }
 
     UA_Variant value;
     UA_Variant_init(&value);
@@ -178,13 +182,15 @@ int main(const int argc, const char *argv[]) {
         size_t signature_length = 0;
 
         if (!sign_data(&sensor_data, sizeof(SensorData), &signature, &signature_length)) {
-            std::cerr << "Failed to sign data" << std::endl;
+            std::lock_guard<std::mutex> lock(cout_mutex);
+            std::cerr << "Sensor " << sensor_id << " - Failed to sign data" << std::endl;
             continue;
         }
 
         UA_ByteString bytes;
         if (serialize_signed_data(&sensor_data, signature, signature_length, &bytes) != UA_STATUSCODE_GOOD) {
-            std::cerr << "Error when serializing" << std::endl;
+            std::lock_guard<std::mutex> lock(cout_mutex);
+            std::cerr << "Sensor " << sensor_id << " - Error when serializing" << std::endl;
             free(signature);
             continue;
         }
@@ -193,7 +199,8 @@ int main(const int argc, const char *argv[]) {
 
         status = UA_Client_writeValueAttribute(client, dest, &value);
         if (status == UA_STATUSCODE_GOOD) {
-            std::cout << "Signed data sent to node\n"
+            std::lock_guard<std::mutex> lock(cout_mutex);
+            std::cout << "Sensor " << sensor_id << " - Signed data sent to node\n"
                       << "    signature_length = " << signature_length << '\n'
                       << "    sensor_id        = " << sensor_data.sensor_id << '\n'
                       << "    temperature      = " << sensor_data.temperature << '\n'
@@ -201,7 +208,9 @@ int main(const int argc, const char *argv[]) {
                       << "    humidity         = " << sensor_data.humidity << '\n'
                       << "    timestamp        = " << sensor_data.timestamp << std::endl;
         } else {
-            std::cerr << "Could not write to node: " << UA_StatusCode_name(status) << std::endl;
+            std::lock_guard<std::mutex> lock(cout_mutex);
+            std::cerr << "Sensor " << sensor_id << " - Could not write to node: "
+                      << UA_StatusCode_name(status) << std::endl;
         }
 
         UA_ByteString_clear(&bytes);
@@ -213,9 +222,46 @@ int main(const int argc, const char *argv[]) {
     UA_NodeId_clear(&dest);
     UA_Client_disconnect(client);
     UA_Client_delete(client);
+
+    {
+        std::lock_guard<std::mutex> lock(cout_mutex);
+        std::cout << "Sensor " << sensor_id << " stopped." << std::endl;
+    }
+}
+
+int main(const int argc, const char *argv[]) {
+    if (argc != 3) {
+        std::cerr << "Usage: ./sensor <num_sensors> <password>" << std::endl;
+        return 1;
+    }
+
+    const int num_sensors = std::stoi(argv[1]);
+    if (num_sensors <= 0) {
+        std::cerr << "Number of sensors must be positive" << std::endl;
+        return 1;
+    }
+
+    if (!load_private_key("../../.keys/sensor_private.pem", argv[2])) {
+        return EXIT_FAILURE;
+    }
+
+    std::signal(SIGINT, stop_handler);
+    std::signal(SIGTERM, stop_handler);
+
+    std::cout << "Starting " << num_sensors << " sensors..." << std::endl;
+
+    std::vector<std::thread> sensor_threads;
+    for (int i = 1; i <= num_sensors; ++i) {
+        sensor_threads.emplace_back(sensor_thread, i);
+    }
+
+    for (auto &thread : sensor_threads) {
+        thread.join();
+    }
+
     EVP_PKEY_free(private_key);
 
-    std::cout << "Sensor " << sensor_id << " stopped." << std::endl;
+    std::cout << "All sensors stopped." << std::endl;
 
     return 0;
 }

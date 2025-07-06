@@ -35,16 +35,13 @@ cd ..
 
 amount=$1
 
-echo "Starting $amount nodes..."
+echo "Starting $amount nodes and sensors..."
 cd cpp/build
 ./node $amount &
+./sensor $amount $2 &
 cd ../..
 
 for ((id=1; id<=amount; id++)); do
-    echo "Starting sensor $id..."
-    cd cpp/build
-    ./sensor $id $2 &
-
     cd ../../java
     echo "Starting intermediate server $id..."
     java -jar build/libs/java-1.0.0-all.jar $id $3 &
