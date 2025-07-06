@@ -37,14 +37,14 @@ uint64_t now() {
     ).count();
 }
 
-bool load_private_key(const char *keyPath) {
+bool load_private_key(const char *keyPath, const char *password) {
     FILE *key_file = fopen(keyPath, "rb");
     if (!key_file) {
         std::cerr << "Cannot open private key file: " << keyPath << std::endl;
         return false;
     }
 
-    private_key = PEM_read_PrivateKey(key_file, nullptr, nullptr, nullptr);
+    private_key = PEM_read_PrivateKey(key_file, nullptr, nullptr, (void *) password);
     fclose(key_file);
 
     if (!private_key) {
@@ -129,12 +129,12 @@ UA_StatusCode serialize_signed_data(
 }
 
 int main(const int argc, const char *argv[]) {
-    if (argc != 2) {
-        std::cerr << "Usage: ./sensor <sensor_id>" << std::endl;
+    if (argc != 3) {
+        std::cerr << "Usage: ./sensor <sensor_id> <password>" << std::endl;
         return 1;
     }
 
-    if (!load_private_key("../../.keys/sensor_private.pem")) {
+    if (!load_private_key("../../.keys/sensor_private.pem", argv[2])) {
         return EXIT_FAILURE;
     }
 

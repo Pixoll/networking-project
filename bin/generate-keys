@@ -1,13 +1,20 @@
 #!/bin/bash
 
+set -e
 cd "$(dirname "$0")/.."
-mkdir .keys
+
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <password>"
+  exit 1
+fi
+
+mkdir -p .keys
 cd .keys
 
 echo "Generating RSA-2048 key pair..."
 
-openssl genpkey -algorithm RSA -out sensor_private.pem -pkcs8 -aes256
-openssl rsa -pubout -in sensor_private.pem -out sensor_public.pem
+openssl genpkey -algorithm RSA -out sensor_private.pem -pkcs8 -aes256 -pass "pass:$1"
+openssl rsa -pubout -in sensor_private.pem -out sensor_public.pem -passin "pass:$1"
 
 echo "RSA keys generated:"
 echo "  Private key: .keys/sensor_private.pem"
