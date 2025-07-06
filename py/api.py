@@ -23,8 +23,7 @@ sock = Sock(app)
 clients: set[Server] = set()
 
 connection = sqlite3.connect("sensor.db", check_same_thread=False)
-cursor = connection.cursor()
-cursor.execute(
+connection.cursor().execute(
     """
     CREATE TABLE IF NOT EXISTS measurement (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -176,6 +175,7 @@ def create_sensor_data() -> tuple[Response | str, int]:
                 },
             ), 400
 
+        cursor = connection.cursor()
         cursor.execute(
             """
             INSERT INTO measurement (sensor_id, temperature, pressure, humidity, timestamp)
@@ -222,6 +222,7 @@ def get_sensor_data() -> tuple[Response, int]:
         end_timestamp = request.args.get("end_timestamp", type=int, default=int(time() * 1000))
         limit = request.args.get("limit", type=int, default=-1)
 
+        cursor = connection.cursor()
         result = cursor.execute(
             """
             SELECT id, sensor_id, temperature, pressure, humidity, timestamp
@@ -253,6 +254,7 @@ def get_sensor_data_by_id(sensor_id: int) -> tuple[Response, int]:
         end_timestamp = request.args.get("end_timestamp", type=int, default=int(time() * 1000))
         limit = request.args.get("limit", type=int, default=-1)
 
+        cursor = connection.cursor()
         result = cursor.execute(
             """
             SELECT id, sensor_id, temperature, pressure, humidity, timestamp
