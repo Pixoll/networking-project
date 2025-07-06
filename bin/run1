@@ -4,9 +4,15 @@ set -e
 cd "$(dirname "$0")/.."
 
 if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <nodes_amount> <password>"
-  exit 1
+    echo "Usage: $0 <nodes_amount> <password>"
+    exit 1
 fi
+
+cleanup() {
+    echo "Stopping all processes..."
+    kill 0
+}
+trap cleanup SIGINT SIGTERM
 
 # install dependencies
 sudo apt install build-essential default-jre default-jdk gradle libssl-dev openssl
@@ -35,14 +41,14 @@ cd cpp/build
 cd ../..
 
 for ((id=1; id<=amount; id++)); do
-  echo "Starting sensor $id..."
-  cd cpp/build
-  ./sensor $id $2 &
+    echo "Starting sensor $id..."
+    cd cpp/build
+    ./sensor $id $2 &
 
-  cd ../../java
-  echo "Starting intermediate server $id..."
-  java -jar build/libs/java-1.0.0-all.jar $id &
-  cd ../
+    cd ../../java
+    echo "Starting intermediate server $id..."
+    java -jar build/libs/java-1.0.0-all.jar $id &
+    cd ../
 done
 
 wait
