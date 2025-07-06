@@ -40,7 +40,6 @@ import java.util.concurrent.ExecutionException;
 
 public class Main {
     private static final String NODE_URL = "opc.tcp://localhost:4840";
-    private static final String ENDPOINT_URL = "http://localhost:5000/api/measurements";
     private static final String PUBLIC_KEY_PATH = "../.keys/sensor_public.pem";
     private static final String AES_KEY_PATH = "../.keys/aes.key";
     private static final String AES_ALGORITHM = "AES/GCM/NoPadding";
@@ -224,7 +223,12 @@ public class Main {
         ).get().getFirst();
     }
 
-    public static void consumeValue(final PublicKey publicKey, final SecretKey aesKey, final DataValue value) {
+    public static void consumeValue(
+        final String apiBaseUrl,
+        final PublicKey publicKey,
+        final SecretKey aesKey,
+        final DataValue value
+    ) {
         try {
             final Variant variant = value.getValue();
             if (variant == null || variant.getValue() == null) {
@@ -256,14 +260,18 @@ public class Main {
             out.println("    signature_length = " + result.signature.length);
 
             if (isValid) {
-                sendEncryptedDataToApi(sensorData, aesKey);
+                sendEncryptedDataToApi(apiBaseUrl, sensorData, aesKey);
             }
         } catch (final Exception e) {
             System.err.println("Error processing data: " + e.getMessage());
         }
     }
 
-    public static void sendEncryptedDataToApi(final SensorData sensorData, final SecretKey aesKey) {
+    public static void sendEncryptedDataToApi(
+        final String apiBaseUrl,
+        final SensorData sensorData,
+        final SecretKey aesKey
+    ) {
         System.out.println("Encrypting and sending data to API");
 
         try {
@@ -278,7 +286,7 @@ public class Main {
             try (final HttpClient client = HttpClient.newHttpClient()) {
                 final HttpRequest request = HttpRequest
                     .newBuilder()
-                    .uri(URI.create(ENDPOINT_URL))
+                    .uri(URI.create(apiBaseUrl + "/api/measurements"))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(encryptedData.toJSON()))
                     .build();
@@ -303,8 +311,20 @@ public class Main {
     }
 
     public static void main(final String[] args) {
-        if (args.length != 1) {
-            System.err.println("Usage: java -jar networking-project.jar <node_id>");
+        if (args.length != 2) {
+            System.err.println("Usage: java -jar networking-project.jar <node_id> <api_base_url>");
+            return;
+        }
+
+        final String nodeId = args[0];
+        final String apiBaseUrl = args[1].replaceAll("/+$", "");
+
+        if (!apiBaseUrl.matches("^https?://[^/]+$")) {
+            System.err.println(
+                "Invalid base API URL: " + apiBaseUrl + "\n"
+                + "API URL must be in this format: ^https?://[^/]+$\n"
+                + "For example: http://localhost:5000 | http://123.123.123.123:5000 | https://api.domain.tld"
+            );
             return;
         }
 
@@ -341,10 +361,10 @@ public class Main {
             client.connect().get();
             System.out.println("Connected to OPC UA server.");
 
-            final UaMonitoredItem monitoredItem = getMonitoredItem(client, "ns=1;s=sensor_" + args[0]);
+            final UaMonitoredItem monitoredItem = getMonitoredItem(client, "ns=1;s=sensor_" + nodeId);
 
             monitoredItem.setValueConsumer((item, value) ->
-                consumeValue(publicKey, aesKey, value)
+                consumeValue(apiBaseUrl, publicKey, aesKey, value)
             );
 
             Runtime.getRuntime().addShutdownHook(new Thread(shutdownLatch::countDown));

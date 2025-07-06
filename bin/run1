@@ -3,8 +3,8 @@
 set -e
 cd "$(dirname "$0")/.."
 
-if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 <nodes_amount> <password>"
+if [ "$#" -ne 3 ]; then
+    echo "Usage: $0 <nodes_amount> <password> <api_base_url>"
     exit 1
 fi
 
@@ -47,7 +47,7 @@ for ((id=1; id<=amount; id++)); do
 
     cd ../../java
     echo "Starting intermediate server $id..."
-    java -jar build/libs/java-1.0.0-all.jar $id &
+    java -jar build/libs/java-1.0.0-all.jar $id $3 &
     cd ../
 done
 
