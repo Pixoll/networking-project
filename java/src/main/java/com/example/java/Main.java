@@ -33,6 +33,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -194,14 +195,9 @@ public class Main {
         return formatter.format(instant);
     }
 
-    public static UaMonitoredItem getMonitoredItem(final OpcUaClient client, final String nodeIdString)
+    public static UaMonitoredItem getMonitoredItem(final UaSubscription subscription, final String nodeIdString)
         throws ExecutionException, InterruptedException {
         final NodeId nodeId = NodeId.parse(nodeIdString);
-
-        final UaSubscription subscription = client
-            .getSubscriptionManager()
-            .createSubscription(500.0)
-            .get();
 
         final MonitoringParameters parameters = new MonitoringParameters(
             UInteger.valueOf(1),
@@ -227,18 +223,19 @@ public class Main {
         final String apiBaseUrl,
         final PublicKey publicKey,
         final SecretKey aesKey,
-        final DataValue value
+        final DataValue value,
+        final int nodeId
     ) {
         try {
             final Variant variant = value.getValue();
             if (variant == null || variant.getValue() == null) {
-                System.out.println("No data received");
+                System.out.println("No data received from sensor " + nodeId);
                 return;
             }
 
             final byte[] rawData = ((ByteString) variant.getValue()).bytes();
             if (rawData == null || rawData.length == 0) {
-                System.out.println("No data received");
+                System.out.println("No data received from sensor " + nodeId);
                 return;
             }
 
@@ -251,7 +248,7 @@ public class Main {
             final String statusText = isValid ? "VALID" : "INVALID | will not send to API";
             final PrintStream out = isValid ? System.out : System.err;
 
-            out.println("\n[sub] signature: " + statusText);
+            out.println("\n[sub] sensor " + nodeId + " signature: " + statusText);
             out.println("    sensor_id        = " + sensorData.sensorId);
             out.println("    temperature      = " + sensorData.temperature);
             out.println("    pressure         = " + sensorData.pressure);
@@ -263,7 +260,7 @@ public class Main {
                 sendEncryptedDataToApi(apiBaseUrl, sensorData, aesKey);
             }
         } catch (final Exception e) {
-            System.err.println("Error processing data: " + e.getMessage());
+            System.err.println("Error processing data from sensor " + nodeId + ": " + e.getMessage());
         }
     }
 
@@ -272,16 +269,16 @@ public class Main {
         final SensorData sensorData,
         final SecretKey aesKey
     ) {
-        System.out.println("Encrypting and sending data to API");
+        System.out.println("Encrypting and sending data to API for sensor " + sensorData.sensorId);
 
         try {
             final EncryptedData encryptedData = encryptData(sensorData.toJSON(), aesKey);
             if (encryptedData == null) {
-                System.err.println("Failed to encrypt data");
+                System.err.println("Failed to encrypt data for sensor " + sensorData.sensorId);
                 return;
             }
 
-            System.out.println("Data encrypted successfully");
+            System.out.println("Data encrypted successfully for sensor " + sensorData.sensorId);
 
             try (final HttpClient client = HttpClient.newHttpClient()) {
                 final HttpRequest request = HttpRequest
@@ -295,28 +292,44 @@ public class Main {
                     .sendAsync(request, HttpResponse.BodyHandlers.ofString())
                     .thenAccept(response -> {
                         if (response.statusCode() == 201) {
-                            System.out.println("Successfully sent encrypted data to API");
+                            System.out.println(
+                                "Successfully sent encrypted data to API for sensor " + sensorData.sensorId
+                            );
                         } else {
-                            System.err.println("Could not send encrypted data to API: " + response.body());
+                            System.err.println(
+                                "Could not send encrypted data to API for sensor " + sensorData.sensorId + ": "
+                                + response.body()
+                            );
                         }
                     })
                     .exceptionally(throwable -> {
-                        System.err.println("Could not send encrypted data to API: " + throwable.getMessage());
+                        System.err.println(
+                            "Could not send encrypted data to API for sensor " + sensorData.sensorId + ": "
+                            + throwable.getMessage()
+                        );
                         return null;
                     });
             }
         } catch (final Exception e) {
-            System.err.println("Error sending encrypted data: " + e.getMessage());
+            System.err.println(
+                "Error sending encrypted data for sensor " + sensorData.sensorId + ": "
+                + e.getMessage()
+            );
         }
     }
 
     public static void main(final String[] args) {
         if (args.length != 2) {
-            System.err.println("Usage: java -jar networking-project.jar <node_id> <api_base_url>");
+            System.err.println("Usage: java -jar networking-project.jar <number_of_sensors> <api_base_url>");
             return;
         }
 
-        final String nodeId = args[0];
+        final int numSensors = Integer.parseInt(args[0]);
+        if (numSensors <= 0) {
+            System.err.println("Number of sensors must be positive");
+            return;
+        }
+
         final String apiBaseUrl = args[1].replaceAll("/+$", "");
 
         if (!apiBaseUrl.matches("^https?://[^/]+$")) {
@@ -361,11 +374,40 @@ public class Main {
             client.connect().get();
             System.out.println("Connected to OPC UA server.");
 
-            final UaMonitoredItem monitoredItem = getMonitoredItem(client, "ns=1;s=sensor_" + nodeId);
+            final UaSubscription subscription = client
+                .getSubscriptionManager()
+                .createSubscription(500.0)
+                .get();
 
-            monitoredItem.setValueConsumer((item, value) ->
-                consumeValue(apiBaseUrl, publicKey, aesKey, value)
-            );
+            final List<UaMonitoredItem> monitoredItems = new ArrayList<>();
+
+            for (int i = 1; i <= numSensors; i++) {
+                final int sensorId = i;
+                final String nodeIdString = "ns=1;s=sensor_" + sensorId;
+
+                try {
+                    final UaMonitoredItem monitoredItem = getMonitoredItem(subscription, nodeIdString);
+
+                    monitoredItem.setValueConsumer((item, value) ->
+                        consumeValue(apiBaseUrl, publicKey, aesKey, value, sensorId)
+                    );
+
+                    monitoredItems.add(monitoredItem);
+                    System.out.println("Monitoring sensor " + sensorId);
+                } catch (final Exception e) {
+                    System.err.println(
+                        "Failed to create monitored item for sensor " + sensorId + ": "
+                        + e.getMessage()
+                    );
+                }
+            }
+
+            if (monitoredItems.isEmpty()) {
+                System.err.println("No sensors could be monitored");
+                return;
+            }
+
+            System.out.println("Successfully monitoring " + monitoredItems.size() + " sensors");
 
             Runtime.getRuntime().addShutdownHook(new Thread(shutdownLatch::countDown));
 
