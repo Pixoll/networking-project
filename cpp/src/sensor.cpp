@@ -6,6 +6,7 @@
 #include <cstring>
 #include <iostream>
 #include <random>
+#include <string>
 #include <thread>
 
 #include <open62541/client.h>
@@ -129,7 +130,7 @@ UA_StatusCode serialize_signed_data(
 
 int main(const int argc, const char *argv[]) {
     if (argc != 2) {
-        std::cerr << "Usage: ./sensor <sensorId>" << std::endl;
+        std::cerr << "Usage: ./sensor <sensor_id>" << std::endl;
         return 1;
     }
 
@@ -156,7 +157,13 @@ int main(const int argc, const char *argv[]) {
     std::normal_distribution<float> interval_dist(4.0f, 1.0f);
 
     const int32_t sensor_id = std::stoi(argv[1]);
+    const std::string node_id = "sensor_" + std::to_string(sensor_id);
     std::cout << "Sensor " << sensor_id << " started with digital signing enabled" << std::endl;
+
+    UA_Variant value;
+    UA_Variant_init(&value);
+
+    UA_NodeId dest = UA_NODEID_STRING_ALLOC(1, const_cast<char *>(node_id.c_str()));
 
     while (running) {
         SensorData sensor_data{
@@ -182,11 +189,7 @@ int main(const int argc, const char *argv[]) {
             continue;
         }
 
-        UA_Variant value;
-        UA_Variant_init(&value);
         UA_Variant_setScalar(&value, &bytes, &UA_TYPES[UA_TYPES_BYTESTRING]);
-
-        UA_NodeId dest = UA_NODEID_STRING_ALLOC(1, "sensor");
 
         status = UA_Client_writeValueAttribute(client, dest, &value);
         if (status == UA_STATUSCODE_GOOD) {
@@ -201,18 +204,18 @@ int main(const int argc, const char *argv[]) {
             std::cerr << "Could not write to node: " << UA_StatusCode_name(status) << std::endl;
         }
 
-        UA_NodeId_clear(&dest);
         UA_ByteString_clear(&bytes);
         free(signature);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(interval_dist(gen) * 1000)));
     }
 
+    UA_NodeId_clear(&dest);
     UA_Client_disconnect(client);
     UA_Client_delete(client);
     EVP_PKEY_free(private_key);
 
-    std::cout << "Sensor stopped." << std::endl;
+    std::cout << "Sensor " << sensor_id << " stopped." << std::endl;
 
     return 0;
 }
