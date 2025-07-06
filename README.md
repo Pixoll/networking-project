@@ -4,7 +4,13 @@ We assume this will be executed in a Unix system. Commands and bash scripts have
 
 ## Preparations
 
-First and foremost, we must create the encryption/signing keys for the different programs to work properly.
+First and foremost, you must get all the required submodules
+
+```bash
+git submodule update --init --recursive
+```
+
+Afterward, you create the encryption/signing keys for the different programs to work properly.
 
 ```bash
 # usage: ./bin/generate-keys <key_pass>
@@ -42,6 +48,17 @@ sudo apt install build-essential default-jre default-jdk gradle libssl-dev opens
 ```
 
 ### Compiling
+
+- open62541 library
+
+```bash
+cd cpp/open62541
+git submodule update --init --recursive
+mkdir -p build
+cd build
+cmake ..
+make
+```
 
 - C++
 
