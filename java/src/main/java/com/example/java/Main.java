@@ -42,7 +42,6 @@ public class Main {
     private static final String NODE_URL = "opc.tcp://localhost:4840";
     private static final String ENDPOINT_URL = "http://localhost:5000/api/measurements";
     private static final String PUBLIC_KEY_PATH = "../.keys/sensor_public.pem";
-    private static final String NODE_ID = "ns=1;s=sensor";
     private static final String AES_KEY_PATH = "../.keys/aes.key";
     private static final String AES_ALGORITHM = "AES/GCM/NoPadding";
     private static final int GCM_IV_LENGTH = 12;
@@ -196,9 +195,9 @@ public class Main {
         return formatter.format(instant);
     }
 
-    public static UaMonitoredItem getMonitoredItem(final OpcUaClient client)
+    public static UaMonitoredItem getMonitoredItem(final OpcUaClient client, final String nodeIdString)
         throws ExecutionException, InterruptedException {
-        final NodeId nodeId = NodeId.parse(NODE_ID);
+        final NodeId nodeId = NodeId.parse(nodeIdString);
 
         final UaSubscription subscription = client
             .getSubscriptionManager()
@@ -304,6 +303,11 @@ public class Main {
     }
 
     public static void main(final String[] args) {
+        if (args.length != 1) {
+            System.err.println("Usage: java -jar networking-project.jar <node_id>");
+            return;
+        }
+
         final PublicKey publicKey = loadPublicKey(PUBLIC_KEY_PATH);
         if (publicKey == null) {
             System.err.println("Failed to load public key");
@@ -337,7 +341,7 @@ public class Main {
             client.connect().get();
             System.out.println("Connected to OPC UA server.");
 
-            final UaMonitoredItem monitoredItem = getMonitoredItem(client);
+            final UaMonitoredItem monitoredItem = getMonitoredItem(client, "ns=1;s=sensor_" + args[0]);
 
             monitoredItem.setValueConsumer((item, value) ->
                 consumeValue(publicKey, aesKey, value)
