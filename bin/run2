@@ -1,0 +1,47 @@
+#!/bin/bash
+
+set -e
+cd "$(dirname "$0")/.."
+
+cleanup() {
+    echo "Stopping all processes..."
+    deactivate
+    kill 0
+}
+trap cleanup SIGINT SIGTERM
+
+# install dependencies
+sudo apt install python3 python3-venv sqlite3
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+nvm install 20
+nvm use 20
+
+# prepare python
+echo "Preparing Python..."
+cd py
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cd ..
+
+# prepare svelte
+echo "Preparing Svelte..."
+cd js
+npm i
+npm run build
+cd ..
+
+echo "Starting API..."
+cd py
+python3 api.py &
+cd ..
+
+echo "Starting frontend..."
+cd js
+npm run preview &
+cd ..
+
+wait
