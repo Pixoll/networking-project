@@ -4,13 +4,21 @@ We assume this will be executed in a Unix system. Commands and bash scripts have
 
 ## Preparations
 
-First and foremost, you must get all the required submodules
+First and foremost, you must get all the required submodules.
 
 ```bash
 git submodule update --init --recursive
 ```
 
-Afterward, you create the encryption/signing keys for the different programs to work properly.
+Afterward, add execution permissions to the scripts needed to run the project.
+```bash
+chmod +x bin/run1
+chmod +x bin/run2
+chmod +x bin/generate-keys
+chmod +x java/gradlew
+```
+
+Lastly, you create the encryption/signing keys for the different programs to work properly.
 
 ```bash
 # usage: ./bin/generate-keys <key_pass>
