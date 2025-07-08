@@ -18,7 +18,7 @@ chmod +x bin/generate-keys
 chmod +x java/gradlew
 ```
 
-Lastly, you create the encryption/signing keys for the different programs to work properly.
+Lastly, create the encryption/signing keys for the different programs to work properly.
 
 ```bash
 # usage: ./bin/generate-keys <key_pass>
@@ -30,8 +30,6 @@ This will create the following keys in the `.keys` directory:
 - `sensor_private.pem` and `sensor_public.pem`: used for communication between C++ and Java
 - `aes.key`: used for communication between Java and Python
 
-### Important
-
 > Ensure `sensor_private.pem` and `sensor_public.pem` are present in Machine 1, and `aes.key` is present in both Machine
 > 1 and Machine 2.
 
@@ -41,15 +39,17 @@ Run the `./bin/run1` script to do everything automatically, or follow the steps 
 
 ```bash
 # install dependencies, compile, and execute
+# usage: ./sensor <number_of_sensors> <key_pass> <api_base_url>
+# api_base_url must have the IP of Machine 2
 ./bin/run1 3 c286jm45... http://192.168.2.123:5000
 ```
 
 ### Dependencies
 
-- CMake and Make
-- Java Runtime and DevKit
-- Gradle
-- OpenSSL
+- C++ 11, CMake 3.10, and Make
+- Java 21 Runtime and DevKit
+- Gradle 8.13
+- OpenSSL 3
 
 ```bash
 sudo apt install build-essential default-jre default-jdk gradle libssl-dev openssl
@@ -59,6 +59,8 @@ sudo apt install build-essential default-jre default-jdk gradle libssl-dev opens
 
 - open62541 library
 
+> Make sure to compile this before compiling the C++ node and sensor, as they depend on this library.
+
 ```bash
 cd cpp/open62541
 git submodule update --init --recursive
@@ -66,6 +68,7 @@ mkdir -p build
 cd build
 cmake ..
 make
+cd ../../..
 ```
 
 - C++
@@ -76,6 +79,7 @@ mkdir -p build
 cd build
 cmake ..
 make
+cd ../..
 ```
 
 - Java
@@ -83,17 +87,22 @@ make
 ```bash
 cd java
 ./gradlew shadowJar
+cd ..
 ```
 
 ### Executing
 
 - Nodes
 
+> Make sure to run this from within the `cpp/build` directory.
+
 ```bash
 cd cpp/build
 # usage: ./node <number_of_nodes>
 ./node 3
 ```
+
+> Make sure to run this from within the `cpp/build` directory.
 
 - Sensors
 
@@ -104,9 +113,13 @@ cd cpp/build
 ```
 
 - Intermediate server
+
+> Make sure to run this from within the `java` directory.
+
 ```bash
 cd java
 # usage: java -jar build/libs/java-1.0.0-all.jar <number_of_sensors> <api_base_url>
+# api_base_url must have the IP of Machine 2
 java -jar build/libs/java-1.0.0-all.jar 3 http://192.168.2.123:5000
 ```
 
@@ -121,9 +134,9 @@ Run the `./bin/run2` script to do everything automatically, or follow the steps 
 
 ### Dependencies
 
-- Python 3 with virtual environment
-- SQLite
-- Node.js
+- Python 3.10 with virtual environment
+- SQLite 3
+- Node.js 20
 
 ```bash
 sudo apt install python3 python3-venv sqlite3
@@ -148,6 +161,8 @@ cd py
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+deactivate
+cd ..
 ```
 
 - Svelte
@@ -156,11 +171,14 @@ pip install -r requirements.txt
 cd js
 npm i
 npm run build
+cd ..
 ```
 
 ### Executing
 
 - API
+
+> Make sure to run this from within the `py` directory.
 
 ```bash
 cd py
@@ -169,6 +187,8 @@ python3 api.py
 ```
 
 - Frontend
+
+> Make sure to run this from within the `js` directory.
 
 ```bash
 cd js
