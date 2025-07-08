@@ -41,6 +41,7 @@
       <thead>
         <tr>
           <th>ID</th>
+          <th>ID Sensor</th>
           <th>Temperatura (°C)</th>
           <th>Presión (hPa)</th>
           <th>Humedad (%)</th>
@@ -61,6 +62,7 @@
             {@const hasAlert = tempStatus !== "normal" || pressureStatus !== "normal" || humidityStatus !== "normal"}
             <tr class:row-alert={hasAlert}>
               <td>{item.id}</td>
+              <td>{item.sensor_id}</td>
               <td class="status-{tempStatus}">
                 {item.temperature.toFixed(1)}°C
                 {#if tempStatus !== "normal"}
